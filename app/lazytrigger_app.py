@@ -39,6 +39,33 @@ def bridge_running():
         return False
 
 
+def page_served():
+    try:
+        with urllib.request.urlopen(URL + "/", timeout=2) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
+
+def stop_broken_bridge():
+    """Stop a running bridge that can't serve the page. That happens when
+    the app it runs from was moved or deleted while it ran (dragged from
+    Downloads to Applications, say): it keeps answering, but its files are
+    gone, so the page would only say "not found"."""
+    if page_served():
+        return
+    try:
+        request = urllib.request.Request(URL + "/app/quit", data=b"{}", method="POST",
+                                         headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(request, timeout=2).close()
+    except Exception:
+        return
+    for _ in range(20):
+        time.sleep(0.25)
+        if not bridge_running():
+            return
+
+
 def pico_plugged_in():
     from serial.tools import list_ports
     return any(p.vid in device_setup.PICO_USB_VENDORS for p in list_ports.comports())
@@ -83,6 +110,8 @@ def main():
             start_bridge("--exit-when-unplugged")
         return
 
+    if bridge_running():
+        stop_broken_bridge()
     if not bridge_running():
         start_bridge("--exit-when-idle")
         for _ in range(40):
