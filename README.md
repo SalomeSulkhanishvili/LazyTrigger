@@ -38,21 +38,40 @@ and download the file for your computer:
 | Windows | `lazyTrigger-Windows.exe` |
 | Linux | `lazyTrigger-Linux` |
 
-Nothing else needs installing. The app is not signed by Apple or
-Microsoft (that costs a yearly fee), so the first time you open it your
-computer warns that it comes from an unidentified developer:
+Nothing else needs installing.
 
-- **macOS:** unzip the download and drag **lazyTrigger** into your
-  **Applications** folder, then open it. When macOS says it can't verify
-  the app, click **Done**, open **System Settings → Privacy & Security**,
-  scroll down and click **Open Anyway** next to lazyTrigger. You only do
-  this once.
-- **Windows:** move `lazyTrigger-Windows.exe` somewhere it can stay, such
-  as your Documents folder, then open it. On "Windows protected your PC",
-  click **More info → Run anyway**.
-- **Linux:** allow the file to run (right-click → **Properties →
-  Permissions → Allow executing file as program**, or
-  `chmod +x lazyTrigger-Linux`), then open it.
+#### Opening it the first time
+
+The app isn't signed by Apple or Microsoft (that needs a paid developer
+account), so the first time you open it your computer blocks it and asks
+you to confirm that you trust it. You only do this once.
+
+**macOS** shows *"Apple could not verify "lazyTrigger" is free of malware
+that may harm your Mac or compromise your privacy."* To allow it:
+
+1. Unzip the download and drag **lazyTrigger** into your **Applications**
+   folder.
+2. Open it. When the warning appears, click **Done** (not "Move to Trash").
+3. Open **System Settings → Privacy & Security** and scroll down to the
+   **Security** section.
+4. Next to *"lazyTrigger" was blocked to protect your Mac*, click
+   **Open Anyway**, then confirm with **Open Anyway** and your password or
+   Touch ID.
+
+From then on it opens like any other app.
+
+**Windows** shows *"Windows protected your PC"*. Move
+`lazyTrigger-Windows.exe` somewhere it can stay, such as your Documents
+folder, open it, and click **More info → Run anyway**.
+
+**Linux:** allow the file to run (right-click → **Properties →
+Permissions → Allow executing file as program**, or
+`chmod +x lazyTrigger-Linux`), then open it.
+
+**Rather not change security settings?** Download the source code instead
+(**Source code (zip)** on the same release page) and run lazyTrigger from the
+terminal with `make`. It does exactly the same, and nothing asks for
+permission. See [Setting up from the terminal instead](#setting-up-from-the-terminal-instead).
 
 ### 3. Open it and set up the device
 
@@ -103,8 +122,9 @@ settings are kept.
 
 ### Setting up from the terminal instead
 
-If you'd rather use the source code: download this project (**Code →
-Download ZIP** on GitHub, or `git clone`), install **Python 3.8 or newer**
+If you'd rather use the source code: download this project (**Source code
+(zip)** on the [latest release](https://github.com/SalomeSulkhanishvili/LazyTrigger/releases/latest),
+**Code → Download ZIP** on GitHub, or `git clone`) and unzip it, install **Python 3.8 or newer**
 (https://www.python.org/downloads/), open a terminal in the project folder
 and run:
 
