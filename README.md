@@ -170,6 +170,13 @@ In the configurator you can:
 
 - Set the shared unlock password (write-only; encrypted to your tag), or
   **Reset password** to forget it without touching tags, actions or secrets
+- Choose the **keyboard layout** your computer uses: English (US), German
+  (Mac), German (Windows / Linux) or Georgian (QWERTY). It has to match the
+  computer's input source (on a Mac, the one in the menu bar), not what is
+  printed on the keys. Typed text then comes out as written, and shortcuts
+  like Cmd+Z stay on the right key. With Georgian, Latin letters can't be
+  typed, since the Georgian input source turns their keys into Georgian
+  ones
 - Save named secrets that a tag can type (passwords, codes)
 - Choose whether a tag's taps run the whole list or cycle one at a time
 - Build each tag's `on_tap` and `on_remove` lists from these actions:
@@ -205,10 +212,9 @@ In the configurator you can:
 - It types only when the bridge reports the screen is locked, so the
   password can't land in whatever window has focus. Without the bridge
   running, Unlock does nothing.
-- It types as a **US keyboard**. If your login screen uses another input
-  source, the same keys produce different characters, so switch the login
-  screen to a US-compatible layout or use a password that types the same on
-  both.
+- It types through the **Keyboard layout** chosen in Global settings. Pick
+  the one your login screen uses: with the wrong one, some keys produce
+  different characters and the password comes out wrong.
 
 ### Switching window layouts
 
@@ -408,6 +414,7 @@ runtime config. CircuitPython supports both out of the box.
    - `protocol.py`
    - `secretbox.py`
    - `mfrc522.py`
+   - `keyboard_layout_win_de.py`, `keyboard_layout_mac_de.py` and `keyboard_layout_ka.py`
    (`lib/adafruit_hid` from step 2 should already be there alongside them.)
 
    Once `boot.py` has run the drive is read-only to your computer, so use
@@ -538,6 +545,9 @@ firmware/
   config.py     # config.json load/save helpers
   secretbox.py  # AES encryption of password/secrets with the tag-held key
   mfrc522.py    # MFRC522 SPI driver (UID read, block read/write)
+  keyboard_layout_win_de.py  # German layout (from Neradoc's Circuitpython_Keyboard_Layouts, MIT)
+  keyboard_layout_mac_de.py  # German layout for macOS, built on the one above
+  keyboard_layout_ka.py      # Georgian (QWERTY) layout
 configurator/
   index.html    # browser-based configurator (Web Serial or the local bridge)
 bridge/

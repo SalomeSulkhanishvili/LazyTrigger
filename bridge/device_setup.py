@@ -44,6 +44,7 @@ FIRMWARE_DIR = resource_root() / "firmware"
 # boot.py goes last: it only runs at power-up, but if the board resets
 # mid-copy the rest of the firmware should already be in place.
 FIRMWARE_FILES = ["settings.toml", "protocol.py", "config.py", "secretbox.py", "mfrc522.py",
+                  "keyboard_layout_win_de.py", "keyboard_layout_mac_de.py", "keyboard_layout_ka.py",
                   "code.py", "boot.py"]
 
 # Drive names the RP2040 / RP2350 bootloader shows when BOOTSEL is held,

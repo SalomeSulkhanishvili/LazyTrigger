@@ -64,6 +64,7 @@ class Command:
     SET_LOCK_STATE = "set_lock_state"
     SET_THEME = "set_theme"
     SET_DEBUG_LOG = "set_debug_log"
+    SET_KEYBOARD_LAYOUT = "set_keyboard_layout"
     FACTORY_RESET = "factory_reset"
 
     ALL = (
@@ -72,6 +73,7 @@ class Command:
         SET_TAG_ACTIONS, NEW_SET,
         START_PAIRING, CANCEL_PAIRING, READ_TAG_DATA, READ_TAG_ALL,
         WRITE_TAG_DATA, TEST_ACTION, SET_LOCK_STATE, SET_THEME, SET_DEBUG_LOG,
+        SET_KEYBOARD_LAYOUT,
         FACTORY_RESET,
     )
 

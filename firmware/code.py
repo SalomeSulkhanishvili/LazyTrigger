@@ -117,7 +117,28 @@ def unpad_block(data_bytes):
     return bytes(data_bytes).rstrip(b"\x00")
 
 
-def setup_hardware():
+# Keyboard layouts the device can type through, so text comes out right on
+# a computer set to that layout. The German ones are separate files, loaded
+# only when chosen.
+KEYBOARD_LAYOUTS = {
+    "us": None,
+    "de_mac": "keyboard_layout_mac_de",
+    "de_win": "keyboard_layout_win_de",
+    "ka": "keyboard_layout_ka",
+}
+
+
+def make_layout(keyboard, name):
+    module = KEYBOARD_LAYOUTS.get(name)
+    if module:
+        try:
+            return __import__(module).KeyboardLayout(keyboard)
+        except ImportError as e:
+            print("keyboard layout {} unavailable ({}); typing as US".format(name, e))
+    return KeyboardLayoutUS(keyboard)
+
+
+def setup_hardware(cfg):
     spi = busio.SPI(SPI_SCK, MOSI=SPI_MOSI, MISO=SPI_MISO)
     cs = digitalio.DigitalInOut(RFID_CS)
     rst = digitalio.DigitalInOut(RFID_RST)
@@ -127,7 +148,7 @@ def setup_hardware():
     led.direction = digitalio.Direction.OUTPUT
 
     keyboard = Keyboard(usb_hid.devices)
-    layout = KeyboardLayoutUS(keyboard)
+    layout = make_layout(keyboard, cfg.get("keyboard_layout"))
 
     return reader, led, keyboard, layout
 
@@ -247,6 +268,24 @@ def screen_locked(state):
     return state.get("lock_state")
 
 
+def chord_keycodes(chord, layout):
+    """Keycodes for a shortcut. A letter names the character, as shortcuts
+    do (Cmd+Z is undo), and which key types it depends on the layout: Z and
+    Y trade places on a German keyboard."""
+    codes = []
+    for name in chord:
+        name = str(name)
+        if len(name) == 1 and name.isalpha():
+            found = layout.keycodes(name.lower())
+            if len(found) == 1:
+                codes.append(found[0])
+                continue
+        code = resolve_keycode(name)
+        if code is not None:
+            codes.append(code)
+    return codes
+
+
 def run_action(keyboard, layout, cfg, action, reader=None, uid_bytes=None, state=None):
     """Play back a single generic action. Unknown types/keys are ignored
     rather than raising, since these come from user-editable config."""
@@ -317,8 +356,7 @@ def run_action(keyboard, layout, cfg, action, reader=None, uid_bytes=None, state
         # does nothing. `keys` is the single-chord form.
         chords = action.get("chords") or [action.get("keys", [])]
         for index, chord in enumerate(chords):
-            codes = [resolve_keycode(k) for k in chord]
-            codes = [c for c in codes if c is not None]
+            codes = chord_keycodes(chord, layout)
             if not codes:
                 continue
             keyboard.press(*codes)
@@ -885,6 +923,13 @@ def handle_command(msg, cfg, link, state):
         config.save(cfg)
         link.send({"ok": True})
 
+    elif cmd == Command.SET_KEYBOARD_LAYOUT:
+        value = msg.get("value", "us")
+        cfg["keyboard_layout"] = value if value in KEYBOARD_LAYOUTS else "us"
+        config.save(cfg)
+        state["layout"] = make_layout(state["keyboard"], cfg["keyboard_layout"])
+        link.send({"ok": True})
+
     elif cmd == Command.SET_DEBUG_LOG:
         cfg["debug_log"] = bool(msg.get("value", False))
         config.save(cfg)
@@ -903,6 +948,7 @@ def handle_command(msg, cfg, link, state):
         cfg["tags"] = []
         config.save(cfg)
         link.send_bare_acks = bool(cfg.get("debug_log"))
+        state["layout"] = make_layout(state["keyboard"], cfg.get("keyboard_layout"))
         state["cycle_index"] = {}
         link.send({"ok": True, "config": public_config(cfg)})
 
@@ -927,7 +973,7 @@ def handle_command(msg, cfg, link, state):
 
 def main():
     cfg = config.load()
-    reader, led, keyboard, layout = setup_hardware()
+    reader, led, keyboard, layout = setup_hardware(cfg)
     link = SerialLink(usb_cdc.data)
     link.send_bare_acks = bool(cfg.get("debug_log"))
 
@@ -1088,7 +1134,7 @@ def main():
                                             "action": act,
                                         }
                                     )
-                                    blocked = run_action(keyboard, layout, cfg, act, reader, uid_bytes, state)
+                                    blocked = run_action(keyboard, state["layout"], cfg, act, reader, uid_bytes, state)
                                     if blocked:
                                         link.send(blocked)
                         else:
@@ -1102,7 +1148,7 @@ def main():
                             link.send({"event": Event.REMOVE, "uid": present_uid})
                             # The tag has left the field by definition, so there is no UID to
                             # pass: anything needing the tag key cannot run here.
-                            run_actions(keyboard, layout, cfg, tag["on_remove"], reader, None, state)
+                            run_actions(keyboard, state["layout"], cfg, tag["on_remove"], reader, None, state)
                         present_uid = None
 
         except Exception as e:  # pylint: disable=broad-except

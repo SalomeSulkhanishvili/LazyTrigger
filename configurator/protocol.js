@@ -47,6 +47,7 @@ const Command = Object.freeze({
   SET_LOCK_STATE: "set_lock_state",
   SET_THEME: "set_theme",
   SET_DEBUG_LOG: "set_debug_log",
+  SET_KEYBOARD_LAYOUT: "set_keyboard_layout",
   FACTORY_RESET: "factory_reset",
 });
 

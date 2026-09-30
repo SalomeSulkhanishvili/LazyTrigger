@@ -59,6 +59,9 @@ DEFAULT_CONFIG = {
     # ({"ok": true}), which arrive every few seconds while the bridge runs.
     # Stored here, like the theme, so it follows the device.
     "debug_log": False,
+    # The keyboard layout the computer uses ("us", "de_mac", "de_win" or "ka"),
+    # so typed text, secrets and the password come out as written.
+    "keyboard_layout": "us",
     # Action sets. Each has a list of tag UIDs that trigger it, which may be
     # empty (an unassigned set, configured but not yet attached to any tag):
     #   [{"id": "s1", "uids": ["04A1B2C3", ...], "label": "...",

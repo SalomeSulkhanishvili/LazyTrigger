@@ -114,6 +114,7 @@ but can be any sequence.
 | `set_lock_state` | `locked`: bool, `app` (optional) | The host reports whether the screen is locked; the device cannot see this itself. Reports older than 10s are treated as unknown |
 | `set_theme` | `value`: `auto`\|`light`\|`dark` | Stores the configurator's theme preference on the device |
 | `set_debug_log` | `value`: `true`\|`false` | Debug mode. Off (the default), the device doesn't send bare `{"ok": true}` acknowledgements at all; replies that carry data or an error are always sent. Stored on the device like the theme |
+| `set_keyboard_layout` | `value`: `us`\|`de_mac`\|`de_win`\|`ka` | The keyboard layout the computer uses (US, German on a Mac, German on Windows/Linux, Georgian QWERTY). Text, secrets and the password are typed through it, and shortcut letters follow it (Z and Y trade places in German). Stored on the device like the theme |
 | `factory_reset` |. | Clears all tags and resets config to defaults |
 
 ## Async events (pushed without a matching request)

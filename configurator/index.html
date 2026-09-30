@@ -342,6 +342,21 @@
       <div id="pwGate" class="hidden" style="background:var(--input-bg);border:1px dashed var(--border);border-radius:6px;padding:10px;margin-top:4px;">
       </div>
       <div class="row">
+        <label for="layoutSelect">Keyboard layout</label>
+        <select id="layoutSelect" style="max-width: 260px">
+          <option value="us">English (US)</option>
+          <option value="de_mac">German (Mac)</option>
+          <option value="de_win">German (Windows / Linux)</option>
+          <option value="ka">Georgian (QWERTY)</option>
+        </select>
+      </div>
+      <div class="row" style="color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: -4px;">
+        Choose the input source your computer uses (on a Mac, the one in the
+        menu bar), including on its login screen. Typed text, saved secrets
+        and the unlock password are typed through it, and shortcut letters
+        follow it.
+      </div>
+      <div class="row">
         <label for="debounceInput">Removal delay (ms)</label>
         <input type="number" id="debounceInput" min="0" step="100" style="max-width: 120px" />
         <button id="saveDebounceBtn">Save</button>
@@ -1625,6 +1640,7 @@ function renderTags(cfg) {
   pwState.className = "pill" + (cfg.has_password ? " unlock" : "");
   $("resetPwBtn").classList.toggle("hidden", !cfg.has_password);
   $("debounceInput").value = cfg.lock_debounce_ms || 1500;
+  $("layoutSelect").value = cfg.keyboard_layout || "us";
 
   const list = $("setsList");
   list.innerHTML = "";
@@ -2036,6 +2052,10 @@ $("blockInfoBtn").addEventListener("click", () => {
 // ---------- Wiring up static controls ----------
 $("connectSerialBtn").addEventListener("click", connectViaSerial);
 $("connectBridgeBtn").addEventListener("click", connectViaBridge);
+
+// Saved as soon as it changes, like the theme.
+$("layoutSelect").addEventListener("change", (e) =>
+  send({ cmd: Command.SET_KEYBOARD_LAYOUT, value: e.target.value }));
 
 $("saveDebounceBtn").addEventListener("click", () =>
   send({ cmd: Command.SET_LOCK_DEBOUNCE_MS, value: parseInt($("debounceInput").value, 10) || 1500 })

@@ -34,7 +34,8 @@ except ImportError:
 from device_setup import FIRMWARE_DIR
 
 DEFAULT_FILES = ["settings.toml", "boot.py", "protocol.py", "config.py", "mfrc522.py",
-                 "secretbox.py", "code.py"]
+                 "secretbox.py", "keyboard_layout_win_de.py", "keyboard_layout_mac_de.py",
+                 "keyboard_layout_ka.py", "code.py"]
 BAUD = 115200
 # base64 characters per REPL line; small enough to arrive intact.
 CHUNK_CHARS = 1024
