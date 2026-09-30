@@ -1,0 +1,2037 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>lazyTrigger Configurator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  /* Dark is the default palette. The light one is applied when the system
+     asks for it, and either can be forced with data-theme on :root. Every
+     colour is a token so a theme swap needs no rule-by-rule edits. */
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel2: #1d2129;
+    --input-bg: #0d0f14;
+    --border: #2a2f3a;
+    --text: #e8eaed;
+    --muted: #9aa2af;
+    --accent: #4f8cff;
+    --accent-text: #ffffff;
+    --danger: #ff5c5c;
+    --ok: #3ddc84;
+    --chip: #2a2f3a;
+    --chip-ok-bg: #1f3d2b;
+    --chip-accent-bg: #1f2a3d;
+    --chip-text-bg: #3d331f;
+    --chip-text-fg: #ffc76b;
+    --chip-notify-bg: #3d1f3a;
+    --chip-notify-fg: #e08cff;
+    --chip-lock-bg: #3d2b1f;
+    --chip-lock-fg: #ffb066;
+    --chip-url-bg: #1f3a3d;
+    --chip-url-fg: #6fd6e0;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --panel2: #f0f2f5;
+      --input-bg: #ffffff;
+      --border: #d5dae2;
+      --text: #1a1d23;
+      --muted: #5c6773;
+      --accent: #2563eb;
+      --accent-text: #ffffff;
+      --danger: #c62828;
+      --ok: #0b7a42;
+      --chip: #e6e9ee;
+      --chip-ok-bg: #d8f0e2;
+      --chip-accent-bg: #dbe7ff;
+      --chip-text-bg: #fbeacd;
+      --chip-text-fg: #8a5a00;
+      --chip-notify-bg: #f4dcf7;
+      --chip-notify-fg: #7b2d8c;
+      --chip-lock-bg: #fae3cd;
+      --chip-lock-fg: #8a4b00;
+      --chip-url-bg: #d6eef2;
+      --chip-url-fg: #0f5c68;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --panel2: #f0f2f5;
+    --input-bg: #ffffff;
+    --border: #d5dae2;
+    --text: #1a1d23;
+    --muted: #5c6773;
+    --accent: #2563eb;
+    --accent-text: #ffffff;
+    --danger: #c62828;
+    --ok: #0b7a42;
+    --chip: #e6e9ee;
+    --chip-ok-bg: #d8f0e2;
+    --chip-accent-bg: #dbe7ff;
+    --chip-text-bg: #fbeacd;
+    --chip-text-fg: #8a5a00;
+    --chip-notify-bg: #f4dcf7;
+    --chip-notify-fg: #7b2d8c;
+    --chip-lock-bg: #fae3cd;
+    --chip-lock-fg: #8a4b00;
+    --chip-url-bg: #d6eef2;
+    --chip-url-fg: #0f5c68;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .row:last-child { margin-bottom: 0; }
+  label { font-size: 13px; color: var(--muted); min-width: 90px; }
+  input[type=text], input[type=password], input[type=number], select, textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    flex: 1;
+    min-width: 100px;
+    font-family: inherit;
+  }
+  input[type=checkbox] { width: 15px; height: 15px; }
+  button {
+    background: var(--accent);
+    color: var(--accent-text);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: var(--chip); color: var(--text); }
+  button.danger { background: var(--danger); }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  button.icon-btn { padding: 3px 8px; font-size: 12px; }
+  .status { font-size: 13px; padding: 4px 0; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--danger); }
+  .status.busy { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  .uid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .log {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+  .hidden { display: none !important; }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--chip);
+    color: var(--muted);
+    margin: 2px 4px 2px 0;
+  }
+  .pill.unlock { background: var(--chip-ok-bg); color: var(--ok); }
+  .pill.keys { background: var(--chip-accent-bg); color: var(--accent); }
+  .pill.text { background: var(--chip-text-bg); color: var(--chip-text-fg); }
+  .pill.wait { background: var(--chip); color: var(--muted); }
+  .pill.notify { background: var(--chip-notify-bg); color: var(--chip-notify-fg); }
+  .pill.lock { background: var(--chip-lock-bg); color: var(--chip-lock-fg); }
+  .pill.url { background: var(--chip-url-bg); color: var(--chip-url-fg); }
+  .preview-box {
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--input-bg);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    width: 100%;
+    flex-basis: 100%;
+  }
+  .preview-box strong { color: var(--text); }
+  .info-btn {
+    background: var(--chip);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    width: 20px; height: 20px;
+    padding: 0;
+    font-size: 12px; font-style: italic; font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+  .info-btn:hover { color: var(--text); border-color: var(--accent); }
+  .info-panel {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  .info-panel p { margin: 0 0 10px; }
+  .info-panel p:last-child { margin-bottom: 0; }
+  .info-panel strong { color: var(--text); }
+  .block-table { margin: 4px 0 12px; font-size: 12px; }
+  .block-table th { color: var(--muted); font-weight: 600; }
+  .block-table td:first-child,
+  .block-table th:first-child { width: 60px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .block-table .warn { color: var(--danger); }
+  .dump-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .dump-table th { color: var(--muted); font-weight: 600; text-align: left; padding: 3px 6px; }
+  .dump-table td { padding: 3px 6px; border-top: 1px solid var(--border); vertical-align: top; }
+  .dump-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  .dump-table tr.sector-start td { border-top: 2px solid var(--border); }
+  .dump-table .muted { color: var(--muted); }
+  .dump-table .warn { color: var(--danger); }
+  /* Masks text without type=password, so Safari/Chrome password managers
+     don't offer to save a "login" and don't try to autofill. */
+  input.masked {
+    -webkit-text-security: disc;
+    text-security: disc;
+  }
+  .action-editor {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    background: var(--panel2);
+    margin-top: 8px;
+  }
+  .action-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px;
+    border-bottom: 1px dashed var(--border);
+    flex-wrap: wrap;
+  }
+  .action-row:last-of-type { border-bottom: none; }
+  .action-row .fields { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex: 1; }
+  .action-row .order-num {
+    font-size: 11px; color: var(--muted); min-width: 20px; padding-top: 8px;
+  }
+  .action-row .action-btns { display: flex; gap: 4px; }
+  .modkeys { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
+  .modkeys label { min-width: unset; display: flex; align-items: center; gap: 4px; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .tag-block {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: var(--panel2);
+  }
+  .tag-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tag-head .name { font-size: 14px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+    <div>
+      <h1>lazyTrigger Configurator</h1>
+      <div class="sub">Configure your device over USB. Every tag's behavior lives here, nothing is hardcoded on the device.</div>
+    </div>
+    <button id="themeBtn" class="secondary icon-btn" title="Switch between light and dark">Theme</button>
+  </div>
+
+  <div class="card">
+    <h2>Connection</h2>
+    <div class="row">
+      <button id="connectSerialBtn">Connect via Web Serial</button>
+      <span style="color: var(--muted); font-size: 12px;">Chrome / Edge / Brave, nothing to install</span>
+    </div>
+    <div class="row">
+      <button id="connectBridgeBtn" class="secondary">Connect via local bridge</button>
+      <span style="color: var(--muted); font-size: 12px;">Works in Safari/Firefox too, needs the bridge script running (see README)</span>
+    </div>
+    <div class="row">
+      <span id="connStatus" class="status">Not connected</span>
+    </div>
+    <div id="noSerialNote" class="row hidden" style="color: var(--muted); font-size: 12px;">
+      This browser doesn't support Web Serial, use "Connect via local bridge" instead.
+    </div>
+  </div>
+
+  <div id="mainPanels" class="hidden">
+    <div class="card">
+      <h2>Global settings</h2>
+      <div class="row">
+        <label>Unlock password</label>
+        <span id="pwState" class="pill">not set</span>
+        <button id="changePwBtn" class="secondary">Set / change password</button>
+        <button id="resetPwBtn" class="secondary">Reset password</button>
+      </div>
+      <div id="pwGate" class="hidden" style="background:var(--input-bg);border:1px dashed var(--border);border-radius:6px;padding:10px;margin-top:4px;">
+      </div>
+      <div class="row">
+        <label for="debounceInput">Removal delay (ms)</label>
+        <input type="number" id="debounceInput" min="0" step="100" style="max-width: 120px" />
+        <button id="saveDebounceBtn">Save</button>
+      </div>
+      <div class="row" style="color: var(--muted); font-size: 12px; line-height: 1.5;">
+        <strong style="color: var(--text);">The password is write-only.</strong>
+        It is encrypted with a key stored on your RFID tag, never on the Pico,
+        and the device refuses to send it back, so it cannot be displayed here
+        or read by anything else on the serial port. There is no "reveal", only
+        "replace". Changing it requires the current one. Lose the tag and the
+        password must be set again; that has no recovery path by design.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Action sets</h2>
+      <div class="sub" style="margin-bottom: 10px;">
+        Each set is a named group of actions. A set either has a tag attached
+        (tap that tag to run it) or sits unassigned until you attach one.
+      </div>
+      <div id="setsList"></div>
+      <div id="setsEmpty" class="empty hidden">Nothing configured yet, create one below.</div>
+    </div>
+
+    <div class="card">
+      <h2>New action set</h2>
+      <div class="row">
+        <label for="newTagLabel">Name</label>
+        <input type="text" id="newTagLabel" placeholder="e.g. Dev workspace badge" />
+      </div>
+
+      <div id="newTapMode"></div>
+      <div id="newOnTapEditor"></div>
+
+      <div class="row" style="margin-top: 14px;"><strong style="font-size: 13px;">On removal</strong>
+        <span style="color: var(--muted); font-size: 12px;">(runs in full when the tag is taken away; needs a tag)</span>
+      </div>
+      <div id="newOnRemoveEditor"></div>
+
+      <div class="row" style="margin-top: 14px;">
+        <label style="min-width: 90px;"><input type="checkbox" id="writeLabelCheck" /> also write name onto the tag</label>
+      </div>
+      <div class="row">
+        <button id="pairBtn">Tap a tag to attach it now</button>
+        <button id="addLibBtn" class="secondary">Save without a tag</button>
+      </div>
+      <div class="row">
+        <span id="pairStatus" class="status"></span>
+        <span id="libStatus" class="status" style="font-size: 12px;"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Advanced: read/write tag memory
+        <button id="blockInfoBtn" class="info-btn" title="What are blocks? What is MIFARE?"
+                aria-expanded="false">i</button>
+      </h2>
+      <div class="sub" style="margin-bottom: 12px;">
+        Your tag has a small amount of storage you can read and write
+        directly. This is a maintenance tool, it does <strong>not</strong>
+        run the tag's assigned actions.
+        <br /><strong style="color: var(--danger);">Block 5 holds the tag's
+        encryption key.</strong> Writing to it permanently destroys the stored
+        password and secrets on this tag; you'll be asked to confirm first.
+      </div>
+
+      <div id="blockInfo" class="hidden info-panel">
+        <p><strong>What is MIFARE?</strong><br />
+        MIFARE is the family of RFID chips inside your tags, made by NXP. The
+        name comes from <em>MIkron FARE collection</em>, since the first ones
+        were built for public transport ticketing. Your tags are
+        <strong>MIFARE Classic</strong>, the type that ships with nearly every
+        RC522 kit.</p>
+
+        <p>It matters here because MIFARE Classic has writable memory, not
+        just a serial number. A simpler tag would only give you a UID you can
+        read, and storing an encryption key on it would be impossible.</p>
+
+        <p><strong>How the memory is arranged</strong><br />
+        Storage is split into fixed slots of 16 bytes each, called blocks.
+        Every fourth block is a "sector trailer" that holds the card's own
+        access keys:</p>
+
+        <table class="block-table">
+          <tr><th>Block</th><th>Holds</th></tr>
+          <tr><td>0</td><td>Manufacturer data, including the UID. Read only.</td></tr>
+          <tr><td>1, 2</td><td>Free space, unused by this project.</td></tr>
+          <tr><td class="warn">3</td><td class="warn">Sector trailer. Access keys, never written.</td></tr>
+          <tr><td>4</td><td>The optional text label written onto the tag.</td></tr>
+          <tr><td class="warn">5</td><td class="warn">Your AES encryption key. Overwriting it destroys the password and secrets.</td></tr>
+          <tr><td>6</td><td>Free space.</td></tr>
+          <tr><td class="warn">7</td><td class="warn">Sector trailer.</td></tr>
+          <tr><td>8+</td><td>The pattern repeats: three free blocks, then a trailer.</td></tr>
+        </table>
+
+        <p>Sector trailers are refused by the device. Writing one would change
+        the card's own access keys and could make that part of the tag
+        unusable for good.</p>
+
+        <p><strong>What is "Key A"?</strong><br />
+        Separate from your encryption key. It is MIFARE's own access control:
+        the card refuses to read or write a sector without it. Blank tags ship
+        with the factory default
+        <span class="uid">FFFFFFFFFFFF</span>, which is why the field is
+        prefilled and you have never needed to enter one.</p>
+      </div>
+      <div class="row">
+        <label for="blockInput">Block</label>
+        <input type="number" id="blockInput" value="4" min="0" style="max-width: 100px" />
+        <label for="keyInput">Key (hex)</label>
+        <input type="text" id="keyInput" placeholder="FFFFFFFFFFFF" style="max-width: 160px" />
+      </div>
+      <div class="row">
+        <label for="dataInput">Text (&le;16 bytes)</label>
+        <input type="text" id="dataInput" maxlength="16" placeholder="Data to write" />
+      </div>
+      <div class="row">
+        <button id="readBlockBtn" class="secondary">Tap tag to read</button>
+        <button id="readAllBtn" class="secondary">Tap tag to read all</button>
+        <button id="writeBlockBtn" class="secondary">Tap tag to write</button>
+        <span id="blockStatus" class="status"></span>
+      </div>
+      <div id="dumpResult" class="hidden" style="overflow-x: auto;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Danger zone</h2>
+      <div class="row">
+        <button id="resetBtn" class="danger">Factory reset device</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Device log</h2>
+      <div id="log" class="log"></div>
+      <div class="row" style="margin-top: 8px;">
+        <button id="clearLogBtn" class="secondary">Clear log</button>
+        <label style="display:inline-flex;align-items:center;gap:6px;min-width:0;"
+               title="Also show routine acknowledgements such as {&quot;ok&quot;:true}, which arrive every few seconds while the bridge runs">
+          <input type="checkbox" id="debugLogToggle" /> Debug: show every message
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="protocol.js"></script>
+<script>
+// ---------- Theme ----------
+// "auto" follows the system setting through the prefers-color-scheme media
+// query; "light" and "dark" pin it. The choice is stored on the device so it
+// travels with it, and mirrored to localStorage so the page opens in the
+// right colours before the device has answered.
+const THEMES = ["auto", "light", "dark"];
+let themeChoice = "auto";
+
+function applyTheme(choice) {
+  themeChoice = THEMES.includes(choice) ? choice : "auto";
+  const root = document.documentElement;
+  if (themeChoice === "auto") {
+    root.removeAttribute("data-theme");
+  } else {
+    root.setAttribute("data-theme", themeChoice);
+  }
+  try {
+    localStorage.setItem("lazyTriggerTheme", themeChoice);
+  } catch (e) {
+    // Private windows can refuse storage; the device copy still persists.
+  }
+  const btn = document.getElementById("themeBtn");
+  if (btn) {
+    const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const effective = themeChoice === "auto" ? (systemDark ? "dark" : "light") : themeChoice;
+    const icon = effective === "dark" ? "\u25cf" : "\u25cb";
+    btn.textContent = icon + " " + (themeChoice === "auto" ? "Auto" : effective === "dark" ? "Dark" : "Light");
+    btn.title = "Theme: " + themeChoice + ". Click to cycle auto, light, dark.";
+  }
+}
+
+// Restore before first paint so there is no flash of the wrong palette.
+try {
+  applyTheme(localStorage.getItem("lazyTriggerTheme") || "auto");
+} catch (e) {
+  applyTheme("auto");
+}
+
+// ---------- Transport layer ----------
+// Two ways to reach the device, sharing the same JSON-lines protocol:
+//  - Web Serial: talks to the Pico directly. Chrome/Edge/Brave only.
+//  - Bridge: talks to a local helper process (bridge/serial_bridge.py) over
+//    plain HTTP + Server-Sent Events. Works in any browser, including
+//    Safari, but requires that script to be running.
+// Whichever one connects sets `activeSend` and feeds incoming lines to
+// handleLine(); the rest of the page doesn't know which is in use.
+
+const $ = (id) => document.getElementById(id);
+// A bare {"ok": true} only says "command received". The bridge's
+// screen-lock reports produce one every few seconds, which buried everything
+// else, so these are shown only in debug mode. Errors ("ok": false) and
+// anything carrying data always show.
+const isRoutineAck = (msg) => msg && msg.ok === true && Object.keys(msg).length === 1;
+
+// Saved in the device's config (like the theme), so it follows the device
+// between computers and browsers; mirrored locally only so the page starts
+// in the right mode before the device has answered.
+let debugLog = false;
+try { debugLog = localStorage.getItem("lazyTriggerDebugLog") === "1"; } catch (e) {}
+
+function applyDebugLog(on) {
+  debugLog = !!on;
+  const toggle = document.getElementById("debugLogToggle");
+  if (toggle) toggle.checked = debugLog;
+  try { localStorage.setItem("lazyTriggerDebugLog", debugLog ? "1" : "0"); } catch (e) {}
+}
+
+// The log lives only in this page (nothing is saved), but it would grow
+// without limit while the page stays open, so only the newest lines are kept.
+const LOG_MAX_LINES = 500;
+const logLines = [];
+const log = (line) => {
+  logLines.push(line);
+  if (logLines.length > LOG_MAX_LINES) logLines.splice(0, logLines.length - LOG_MAX_LINES);
+  const el = $("log");
+  el.textContent = logLines.join("\n") + "\n";
+  el.scrollTop = el.scrollHeight;
+};
+
+function setStatus(el, text, cls) {
+  el.textContent = text;
+  el.className = "status" + (cls ? " " + cls : "");
+}
+
+let activeSend = null;
+// The secret action row that's waiting for a tag tap, so the id the
+// device generates can be written back into it.
+let pendingSecretAction = null;
+// The status line of the secret row mid-save, so the device's answer
+// (saved outright vs, needs a tap) can be shown in the right place.
+let pendingSecretStatus = null;
+
+// Safari and Chrome both support the Notification API (unlike Web Serial),
+// so this works regardless of how the page is connected. Permission is only
+// requested on the first reminder rather than on page load.
+function showBrowserNotification(title, body) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    new Notification(title, { body });
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then((p) => {
+      if (p === "granted") new Notification(title, { body });
+    });
+  }
+}
+
+function onConnected() {
+  $("mainPanels").classList.remove("hidden");
+  $("connectSerialBtn").disabled = true;
+  $("connectBridgeBtn").disabled = true;
+  send({ cmd: Command.GET_CONFIG });
+}
+
+// Fields that must never reach the on-screen log. The log is a debugging
+// aid, but it is also visible over someone's shoulder and scrollable back,
+// so anything secret is replaced before it is rendered. `value` carries
+// passwords and secrets; the hashes are check values derived from a
+// password, which are worth guessing against if the password is weak.
+const REDACTED_FIELDS = ["value", "old_hash", "new_hash", "password"];
+
+function redactForLog(obj) {
+  const copy = JSON.parse(JSON.stringify(obj));
+  const walk = (node) => {
+    if (!node || typeof node !== "object") return;
+    for (const key of Object.keys(node)) {
+      if (REDACTED_FIELDS.includes(key) && typeof node[key] === "string") {
+        node[key] = node[key] ? "<redacted>" : "";
+      } else if (typeof node[key] === "object") {
+        walk(node[key]);
+      }
+    }
+  };
+  walk(copy);
+  return copy;
+}
+
+async function send(obj) {
+  if (!activeSend) return;
+  const line = JSON.stringify(obj);
+  log("> " + JSON.stringify(redactForLog(obj)));
+  try {
+    await activeSend(obj);
+  } catch (e) {
+    log("[send error] " + e.message);
+  }
+}
+
+function handleLine(line) {
+  let msg;
+  try {
+    msg = JSON.parse(line);
+  } catch (e) {
+    log("< " + line);
+    return;
+  }
+  if (debugLog || !isRoutineAck(msg)) log("< " + JSON.stringify(redactForLog(msg)));
+
+  if (msg.config) renderTags(msg.config);
+
+  // Reminders: the bridge shows a native OS notification when it's running,
+  // but it can't when the page is connected straight over Web Serial (the
+  // browser holds the port exclusively, so the bridge can't read it). Show
+  // one from the page too, so "Test" works on either transport. Both firing
+  // at once is harmless.
+  if ((msg.event === Event.TAP || msg.event === Event.ACTION_FIRED) && msg.action && msg.action.type === ActionType.NOTIFY) {
+    const { title, body } = renderReminder(msg.action);
+    log("🔔 " + title + ": " + body);
+    showBrowserNotification(title, body);
+  }
+
+  if (msg.waiting_for_tag && pendingSecretStatus) {
+    pendingSecretStatus.innerHTML =
+      '<span style="color: var(--accent)">Tap the tag once to unlock the key, then this saves automatically.</span>';
+  }
+
+  if (msg.event === Event.SECRET_SET) {
+    if (pendingSecretStatus) {
+      pendingSecretStatus.innerHTML =
+        '<span style="color: var(--ok)">Saved & encrypted.</span>';
+      pendingSecretStatus = null;
+    }
+    if (pendingSecretAction) {
+      pendingSecretAction.id = msg.id;
+      delete pendingSecretAction._label;
+      pendingSecretAction = null;
+    }
+    send({ cmd: Command.GET_CONFIG });
+  }
+
+  if (msg.event === Event.PASSWORD_SET) {
+    closePwGate();
+    send({ cmd: Command.GET_CONFIG });
+  } else if (msg.event === Event.PASSWORD_ERROR) {
+    const gate = $("pwGate");
+    if (!gate.classList.contains("hidden")) {
+      const note = gate.querySelector(".status");
+      if (note) setStatus(note, "Failed: " + msg.error, "err");
+    }
+  }
+
+  // A tag that the device saw but that isn't attached to any set. Without
+  // this the only trace is a raw line in the debug log, so tapping an
+  // unregistered tag looks identical to the reader not seeing it at all.
+  if (msg.event === Event.UNKNOWN_TAG) {
+    log("\u{1F3F7} Unregistered tag " + msg.uid);
+    setStatus($("pairStatus"),
+      "Saw tag " + msg.uid + ", but it isn't attached to anything yet. " +
+      "Build its actions below, then click Pair and tap it again.", "busy");
+  }
+
+  if (msg.event === Event.TAG_PAIRED) {
+    setStatus($("pairStatus"), "Attached tag " + msg.uid, "ok");
+  } else if (msg.event === Event.TAG_DATA_READ) {
+    setStatus($("blockStatus"), 'Read: "' + msg.text + '" (' + msg.data_hex + ")", "ok");
+  } else if (msg.event === Event.TAG_DUMP) {
+    renderDump(msg);
+    setStatus($("blockStatus"), msg.unreadable_sectors
+      ? "Read tag " + msg.uid + "; " + msg.unreadable_sectors
+        + " sector(s) couldn't be read (different key, or the tag moved)"
+      : "Read all 64 blocks of tag " + msg.uid, msg.unreadable_sectors ? "err" : "ok");
+  } else if (msg.event === Event.TAG_DATA_WRITTEN) {
+    setStatus($("blockStatus"), "Written to block " + msg.block, "ok");
+  } else if (msg.needs_confirmation === "key_overwrite") {
+    setStatus($("blockStatus"), msg.error, "err");
+  } else if (msg.event === Event.TAG_DATA_ERROR) {
+    setStatus($("blockStatus"), "Error: " + msg.error, "err");
+  }
+}
+
+//. Web Serial transport
+let serialPort, serialReader;
+
+async function connectViaSerial() {
+  if (!("serial" in navigator)) {
+    setStatus($("connStatus"), "Web Serial not supported in this browser, try the local bridge instead", "err");
+    return;
+  }
+  try {
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: 115200 });
+    const writer = serialPort.writable.getWriter();
+    activeSend = async (obj) => writer.write(new TextEncoder().encode(JSON.stringify(obj) + "\n"));
+
+    setStatus($("connStatus"), "Connected via Web Serial", "ok");
+    serialReadLoop();
+    onConnected();
+  } catch (e) {
+    setStatus($("connStatus"), "Failed to connect: " + e.message, "err");
+  }
+}
+
+async function serialReadLoop() {
+  const textDecoder = new TextDecoderStream();
+  serialPort.readable.pipeTo(textDecoder.writable);
+  serialReader = textDecoder.readable.getReader();
+  let buf = "";
+  try {
+    while (true) {
+      const { value, done } = await serialReader.read();
+      if (done) break;
+      buf += value;
+      let idx;
+      while ((idx = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (line) handleLine(line);
+      }
+    }
+  } catch (e) {
+    log("[read error] " + e.message);
+  }
+}
+
+//. Local bridge transport (bridge/serial_bridge.py)
+// Same-origin relative paths when this page is served BY the bridge itself
+// (the normal way to use it); falls back to the default bridge port if
+// opened as a bare file:// page instead.
+const BRIDGE_BASE = location.protocol.startsWith("http") ? "" : "http://127.0.0.1:8787";
+let bridgeEvents = null;
+
+async function connectViaBridge() {
+  setStatus($("connStatus"), "Looking for the bridge / device...", "busy");
+  try {
+    const res = await fetch(BRIDGE_BASE + "/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "connect failed");
+
+    activeSend = async (obj) => {
+      const r = await fetch(BRIDGE_BASE + "/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(obj),
+      });
+      const body = await r.json();
+      if (!body.ok) throw new Error(body.error || "send failed");
+    };
+
+    bridgeEvents = new EventSource(BRIDGE_BASE + "/events");
+    bridgeEvents.onmessage = (e) => handleLine(e.data);
+    bridgeEvents.onerror = () => setStatus($("connStatus"), "Bridge connection dropped", "err");
+
+    setStatus($("connStatus"), "Connected via bridge (" + data.port + ")", "ok");
+    onConnected();
+  } catch (e) {
+    setStatus(
+      $("connStatus"),
+      "Couldn't reach the bridge, is bridge/serial_bridge.py running? (" + e.message + ")",
+      "err"
+    );
+  }
+}
+
+if (!("serial" in navigator)) {
+  $("noSerialNote").classList.remove("hidden");
+  $("connectSerialBtn").disabled = true;
+}
+
+// ---------- Keycode helpers ----------
+// Names must match adafruit_hid.keycode.Keycode attributes on the device.
+const KEY_OPTIONS = [
+  ["A","A"],["B","B"],["C","C"],["D","D"],["E","E"],["F","F"],["G","G"],["H","H"],
+  ["I","I"],["J","J"],["K","K"],["L","L"],["M","M"],["N","N"],["O","O"],["P","P"],
+  ["Q","Q"],["R","R"],["S","S"],["T","T"],["U","U"],["V","V"],["W","W"],["X","X"],
+  ["Y","Y"],["Z","Z"],
+  ["ONE","1"],["TWO","2"],["THREE","3"],["FOUR","4"],["FIVE","5"],
+  ["SIX","6"],["SEVEN","7"],["EIGHT","8"],["NINE","9"],["ZERO","0"],
+  ["F1","F1"],["F2","F2"],["F3","F3"],["F4","F4"],["F5","F5"],["F6","F6"],
+  ["F7","F7"],["F8","F8"],["F9","F9"],["F10","F10"],["F11","F11"],["F12","F12"],
+  ["ESCAPE","Esc"],["ENTER","Enter"],["TAB","Tab"],["SPACE","Space"],
+  ["BACKSPACE","Backspace"],["DELETE","Delete"],
+  ["UP_ARROW","Up"],["DOWN_ARROW","Down"],["LEFT_ARROW","Left"],["RIGHT_ARROW","Right"],
+  ["HOME","Home"],["END","End"],["PAGE_UP","Page Up"],["PAGE_DOWN","Page Down"],
+];
+
+const MOD_OPTIONS = [
+  ["CONTROL", "Ctrl"],
+  ["ALT", "Alt"],
+  ["SHIFT", "Shift"],
+  ["GUI", "Cmd/Win"],
+];
+
+const PRESETS = [
+  { label: "Windows lock (Win+L)", keys: ["GUI", "L"] },
+  { label: "macOS lock (Ctrl+Cmd+Q)", keys: ["CONTROL", "GUI", "Q"] },
+  { label: "Linux lock (Super+L)", keys: ["GUI", "L"] },
+];
+
+
+function chordsToLabel(chords) {
+  return (chords || []).map((c) => c.join(" + ")).join(", then ");
+}
+
+function keysToLabel(keys) {
+  return (keys || []).join(" + ");
+}
+
+// Mirrors bridge/serial_bridge.py's render_reminder() so the preview shown
+// here matches what the actual notification will say. `mode` is "since"
+// (count days since a past fact, e.g, an anniversary) or "until" (countdown
+// to a future date, e.g, a deadline); `fact` is a free-text description the
+// user writes themselves rather than a template string.
+function renderReminder(action) {
+  const title = action.title || "Reminder";
+  const fact = action.fact || "something";
+  if (!action.date) return { title, body: fact };
+
+  const target = new Date(action.date + "T00:00:00");
+  if (isNaN(target)) return { title, body: fact };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const delta = Math.round((target.getTime() - today.getTime()) / 86400000); // future = positive
+  const plural = (n) => (Math.abs(n) === 1 ? "day" : "days");
+
+  let body;
+  if (action.mode === NotifyMode.UNTIL) {
+    if (delta > 0) body = `${delta} ${plural(delta)} until ${fact}.`;
+    else if (delta === 0) body = `Today: ${fact}!`;
+    else body = `${fact} was ${-delta} ${plural(delta)} ago.`;
+  } else {
+    const daysSince = -delta;
+    if (daysSince >= 0) body = `It's been ${daysSince} ${plural(daysSince)} since ${fact}.`;
+    else body = `${fact} is in ${-daysSince} ${plural(daysSince)}.`;
+  }
+  return { title, body };
+}
+
+// ---------- Generic action-list editor ----------
+// Each editor instance owns an array of action objects and re-renders a
+// container element from it. `getState`/`onChange` let callers read the
+// current list back out.
+// `runsAsSequence` distinguishes the two lists: on_remove runs its whole
+// list in order, while on_tap runs exactly ONE action per tap and advances a
+// cycle. A "wait" is only meaningful in a sequence, in a cycle it would
+// burn a whole tap doing nothing visible, so it's only offered there.
+function createActionEditor(container, initialActions, runsAsSequence = false, onUnassign = null) {
+  let actions = JSON.parse(JSON.stringify(initialActions || []));
+
+  function render() {
+    container.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "action-editor";
+
+    if (actions.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No actions yet.";
+      box.appendChild(empty);
+    }
+
+    actions.forEach((action, i) => {
+      box.appendChild(renderRow(action, i));
+    });
+
+    const addRow = document.createElement("div");
+    addRow.className = "row";
+    addRow.style.marginTop = "10px";
+
+    const typeSelect = document.createElement("select");
+    typeSelect.style.maxWidth = "160px";
+    typeSelect.innerHTML = Object.entries(ACTION_META)
+      .filter(([type]) => runsAsSequence || type !== ActionType.WAIT)
+      .map(([type, meta]) => `<option value="${type}"${type === ActionType.KEYS ? " selected" : ""}>${meta.label}</option>`)
+      .join("");
+    const addBtn = document.createElement("button");
+    addBtn.textContent = "+ Add action";
+    addBtn.className = "secondary";
+    addBtn.addEventListener("click", () => {
+      actions.push(defaultActionFor(typeSelect.value));
+      render();
+    });
+    addRow.append(typeSelect, addBtn);
+
+    const presetRow = document.createElement("div");
+    presetRow.className = "presets";
+    for (const preset of PRESETS) {
+      const btn = document.createElement("button");
+      btn.className = "ghost icon-btn";
+      btn.textContent = "+ " + preset.label;
+      btn.addEventListener("click", () => {
+        actions.push({ type: "keys", keys: preset.keys.slice() });
+        render();
+      });
+      presetRow.appendChild(btn);
+    }
+
+    box.appendChild(addRow);
+    box.appendChild(presetRow);
+    container.appendChild(box);
+  }
+
+  function defaultActionFor(type) {
+    return ACTION_META[type].make();
+  }
+
+  function renderRow(action, i) {
+    const row = document.createElement("div");
+    row.className = "action-row";
+
+    const order = document.createElement("div");
+    order.className = "order-num";
+    order.textContent = (i + 1) + ".";
+
+    const fields = document.createElement("div");
+    fields.className = "fields";
+
+    if (action.type === ActionType.UNLOCK) {
+      const pill = document.createElement("span");
+      pill.className = "pill unlock";
+      pill.textContent = "Unlock";
+      fields.appendChild(pill);
+
+      const note = document.createElement("div");
+      note.className = "preview-box";
+      const describe = () => {
+        note.innerHTML = "Wakes the screen with <strong>" +
+          (action.wake_keys || ["SHIFT"]).join("+") + "</strong>, waits <strong>" +
+          (action.delay != null ? action.delay : 0.8) +
+          "s</strong>, then types the password and presses Enter.";
+      };
+
+      const osSelect = document.createElement("select");
+      osSelect.style.maxWidth = "200px";
+      osSelect.innerHTML = `
+        <option value="universal">Universal (any computer)</option>
+        <option value="mac">macOS</option>
+        <option value="windows">Windows</option>
+        <option value="linux">Linux</option>
+      `;
+      osSelect.value = action.os || "universal";
+      osSelect.addEventListener("change", () => {
+        action.os = osSelect.value;
+        Object.assign(action, UNLOCK_PRESETS[osSelect.value]);
+        delayInput.value = action.delay;
+        describe();
+      });
+      fields.appendChild(osSelect);
+
+      const delayLabel = document.createElement("span");
+      delayLabel.style.cssText = "color: var(--muted); font-size: 12px;";
+      delayLabel.textContent = "wait";
+      const delayInput = document.createElement("input");
+      delayInput.type = "number";
+      delayInput.min = "0";
+      delayInput.step = "0.1";
+      delayInput.style.maxWidth = "80px";
+      delayInput.value = action.delay != null ? action.delay : 0.8;
+      delayInput.addEventListener("input", () => {
+        action.delay = parseFloat(delayInput.value) || 0;
+        describe();
+      });
+      const sLabel = document.createElement("span");
+      sLabel.style.cssText = "color: var(--muted); font-size: 12px;";
+      sLabel.textContent = "s before typing";
+
+      fields.append(delayLabel, delayInput, sLabel);
+      if (!action.wake_keys) Object.assign(action, UNLOCK_PRESETS[action.os || "universal"]);
+      describe();
+      fields.appendChild(note);
+    } else if (action.type === ActionType.LOCK) {
+      const pill = document.createElement("span");
+      pill.className = "pill lock";
+      pill.textContent = "Lock screen";
+      fields.appendChild(pill);
+
+      const comboLabel = document.createElement("span");
+      comboLabel.style.color = "var(--muted)";
+      comboLabel.style.fontSize = "12px";
+
+      const osSelect = document.createElement("select");
+      osSelect.style.maxWidth = "220px";
+      osSelect.innerHTML = `
+        <option value="universal">Universal (any computer)</option>
+        <option value="mac">macOS only</option>
+        <option value="windows">Windows only</option>
+        <option value="linux">Linux only</option>
+      `;
+      osSelect.value = action.os || "universal";
+      const syncCombo = () => {
+        action.os = osSelect.value;
+        action.chords = LOCK_COMBOS[osSelect.value].map((c) => c.slice());
+        delete action.keys;
+        comboLabel.textContent = "sends " + chordsToLabel(action.chords);
+      };
+      osSelect.addEventListener("change", syncCombo);
+      if (!action.chords || !action.chords.length) syncCombo();
+      else comboLabel.textContent = "sends " + chordsToLabel(action.chords);
+
+      fields.append(osSelect, comboLabel);
+    } else if (action.type === ActionType.KEYS) {
+      const pill = document.createElement("span");
+      pill.className = "pill keys";
+      pill.textContent = "Shortcut";
+      fields.appendChild(pill);
+
+      const modWrap = document.createElement("div");
+      modWrap.className = "modkeys";
+      const activeMods = new Set((action.keys || []).filter((k) => MOD_OPTIONS.some(([n]) => n === k)));
+      for (const [name, label] of MOD_OPTIONS) {
+        const wrapLabel = document.createElement("label");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = activeMods.has(name);
+        cb.addEventListener("change", () => {
+          const nonMods = (action.keys || []).filter((k) => !MOD_OPTIONS.some(([n]) => n === k));
+          const mods = MOD_OPTIONS.filter(([n]) => n === name ? cb.checked : activeMods.has(n)).map(([n]) => n);
+          action.keys = [...mods, ...nonMods];
+        });
+        wrapLabel.append(cb, document.createTextNode(label));
+        modWrap.appendChild(wrapLabel);
+      }
+      fields.appendChild(modWrap);
+
+      const keySelect = document.createElement("select");
+      keySelect.innerHTML = '<option value="">(key)</option>' +
+        KEY_OPTIONS.map(([n, l]) => `<option value="${n}">${l}</option>`).join("");
+      const currentMain = (action.keys || []).find((k) => !MOD_OPTIONS.some(([n]) => n === k));
+      if (currentMain) keySelect.value = currentMain;
+      keySelect.addEventListener("change", () => {
+        const mods = (action.keys || []).filter((k) => MOD_OPTIONS.some(([n]) => n === k));
+        action.keys = keySelect.value ? [...mods, keySelect.value] : mods;
+      });
+      fields.appendChild(keySelect);
+
+      const preview = document.createElement("span");
+      preview.style.color = "var(--muted)";
+      preview.style.fontSize = "12px";
+      preview.textContent = keysToLabel(action.keys);
+      fields.appendChild(preview);
+    } else if (action.type === ActionType.TEXT) {
+      const pill = document.createElement("span");
+      pill.className = "pill text";
+      pill.textContent = "Type text";
+      fields.appendChild(pill);
+
+      const textInput = document.createElement("input");
+      textInput.type = "text";
+      textInput.placeholder = "Text to type";
+      textInput.value = action.text || "";
+      textInput.addEventListener("input", () => { action.text = textInput.value; });
+      fields.appendChild(textInput);
+
+      const enterLabel = document.createElement("label");
+      enterLabel.style.minWidth = "unset";
+      const enterCb = document.createElement("input");
+      enterCb.type = "checkbox";
+      enterCb.checked = !!action.enter;
+      enterCb.addEventListener("change", () => { action.enter = enterCb.checked; });
+      enterLabel.append(enterCb, document.createTextNode(" press Enter after"));
+      fields.appendChild(enterLabel);
+    } else if (action.type === ActionType.SECRET) {
+      const pill = document.createElement("span");
+      pill.className = "pill unlock";
+      pill.textContent = "Secret";
+      fields.appendChild(pill);
+
+      const saved = (currentConfig.secrets || []).find((x) => x.id === action.id);
+      const status = document.createElement("div");
+      status.className = "preview-box";
+
+      if (saved) {
+        // Already stored and encrypted, the value itself can never be
+        // shown again, so offer replacing it rather than editing it.
+        const name = document.createElement("span");
+        name.textContent = saved.label;
+        name.style.fontWeight = "600";
+        fields.appendChild(name);
+
+        const replaceBtn = document.createElement("button");
+        replaceBtn.className = "secondary icon-btn";
+        replaceBtn.textContent = "Replace value";
+        replaceBtn.addEventListener("click", () => {
+          action.id = "";
+          action._label = saved.label;
+          render();
+        });
+        fields.appendChild(replaceBtn);
+
+        const forgetBtn = document.createElement("button");
+        forgetBtn.className = "danger icon-btn";
+        forgetBtn.textContent = "Delete";
+        forgetBtn.addEventListener("click", () => {
+          send({ cmd: Command.REMOVE_SECRET, id: saved.id });
+          action.id = "";
+          render();
+        });
+        fields.appendChild(forgetBtn);
+
+        status.innerHTML = "<strong>Stored & encrypted to your tag.</strong> " +
+          "The value can't be displayed again, only replaced.";
+      } else {
+        // Not stored yet: name it, type it, and save it. The value goes
+        // straight into the encrypted store; it is never written into this
+        // action, which is kept as plaintext config.
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.placeholder = "What is it? e.g. Work VPN";
+        nameInput.value = action._label || "";
+        nameInput.style.maxWidth = "200px";
+        nameInput.addEventListener("input", () => { action._label = nameInput.value; });
+
+        const valueInput = makeSecretInput("Password / value to type");
+
+        const saveBtn = document.createElement("button");
+        saveBtn.textContent = "Save to tag";
+        saveBtn.addEventListener("click", async () => {
+          if (!nameInput.value.trim() || !valueInput.value) {
+            status.innerHTML = '<span style="color: var(--danger)">Give it a name and a value first.</span>';
+            return;
+          }
+          pendingSecretAction = action;
+          await send({
+            cmd: Command.SET_SECRET,
+            label: nameInput.value.trim(),
+            value: valueInput.value,
+          });
+          valueInput.value = "";
+          pendingSecretStatus = status;
+          status.innerHTML = '<span style="color: var(--accent)">Saving...</span>';
+        });
+
+        fields.append(nameInput, makeRevealToggle(valueInput), valueInput, saveBtn);
+
+        const existing = currentConfig.secrets || [];
+        if (existing.length) {
+          const reuse = document.createElement("select");
+          reuse.style.maxWidth = "180px";
+          reuse.innerHTML = '<option value="">or reuse saved...</option>' +
+            existing.map((sec) => `<option value="${sec.id}">${sec.label}</option>`).join("");
+          reuse.addEventListener("change", () => {
+            if (reuse.value) { action.id = reuse.value; render(); }
+          });
+          fields.appendChild(reuse);
+        }
+
+        status.innerHTML = "Typed into whatever window has focus, like a password manager would.";
+      }
+
+      const enterLabel = document.createElement("label");
+      enterLabel.style.minWidth = "unset";
+      const enterCb = document.createElement("input");
+      enterCb.type = "checkbox";
+      enterCb.checked = !!action.enter;
+      enterCb.addEventListener("change", () => { action.enter = enterCb.checked; });
+      enterLabel.append(enterCb, document.createTextNode(" press Enter after"));
+      fields.appendChild(enterLabel);
+
+      // Optional safety net: only type when a named app has focus, so a
+      // mistimed tap can't spray the secret into a chat window.
+      const appInput = document.createElement("input");
+      appInput.type = "text";
+      appInput.placeholder = "Only type when this app is focused (optional)";
+      appInput.value = action.only_in_app || "";
+      appInput.style.minWidth = "260px";
+      appInput.addEventListener("input", () => { action.only_in_app = appInput.value; });
+      fields.appendChild(appInput);
+
+      fields.appendChild(status);
+    } else if (action.type === ActionType.OPEN_URL) {
+      const pill = document.createElement("span");
+      pill.className = "pill url";
+      pill.textContent = "Open link";
+      fields.appendChild(pill);
+
+      const urlInput = document.createElement("input");
+      urlInput.type = "text";
+      urlInput.placeholder = "https://example.com";
+      urlInput.value = action.url || "";
+      urlInput.style.minWidth = "260px";
+
+      const note = document.createElement("div");
+      note.className = "preview-box";
+      const updateNote = () => {
+        const v = (urlInput.value || "").trim();
+        if (!v) {
+          note.textContent = "Opens in your default browser (needs the bridge running).";
+        } else if (!/^https?:\/\//i.test(v)) {
+          note.innerHTML = '<span style="color: var(--danger)">Must start with http:// or https://. ' +
+            'anything else is refused for safety.</span>';
+        } else {
+          note.innerHTML = "Opens <strong>" + v + "</strong> in your default browser.";
+        }
+      };
+      urlInput.addEventListener("input", () => { action.url = urlInput.value; updateNote(); });
+      updateNote();
+
+      fields.appendChild(urlInput);
+      fields.appendChild(note);
+    } else if (action.type === ActionType.NOTIFY) {
+      const pill = document.createElement("span");
+      pill.className = "pill notify";
+      pill.textContent = "Reminder";
+      fields.appendChild(pill);
+
+      const preview = document.createElement("div");
+      preview.className = "preview-box";
+      const updatePreview = () => {
+        const { title, body } = renderReminder(action);
+        preview.innerHTML = `<strong>${title}:</strong> ${body}`;
+      };
+
+      const modeSelect = document.createElement("select");
+      modeSelect.style.maxWidth = "200px";
+      modeSelect.innerHTML = `
+        <option value="since">Days since a fact (e.g, an anniversary)</option>
+        <option value="until">Countdown to a date (e.g, a deadline)</option>
+      `;
+      modeSelect.value = action.mode || "since";
+      modeSelect.addEventListener("change", () => { action.mode = modeSelect.value; updatePreview(); });
+      fields.appendChild(modeSelect);
+
+      const factInput = document.createElement("input");
+      factInput.type = "text";
+      factInput.placeholder = "e.g, you started your Bachelor's degree";
+      factInput.value = action.fact || "";
+      factInput.style.minWidth = "220px";
+      factInput.addEventListener("input", () => { action.fact = factInput.value; updatePreview(); });
+      fields.appendChild(factInput);
+
+      const dateInput = document.createElement("input");
+      dateInput.type = "date";
+      dateInput.style.maxWidth = "160px";
+      dateInput.value = action.date || "";
+      dateInput.addEventListener("input", () => { action.date = dateInput.value; updatePreview(); });
+      fields.appendChild(dateInput);
+
+      const titleInput = document.createElement("input");
+      titleInput.type = "text";
+      titleInput.placeholder = "Notification title";
+      titleInput.value = action.title || "";
+      titleInput.style.maxWidth = "160px";
+      titleInput.addEventListener("input", () => { action.title = titleInput.value; updatePreview(); });
+      fields.appendChild(titleInput);
+
+      updatePreview();
+      fields.appendChild(preview);
+    } else if (action.type === ActionType.WAIT) {
+      if (!runsAsSequence) {
+        const warn = document.createElement("div");
+        warn.className = "preview-box";
+        warn.innerHTML = '<span style="color: var(--danger)">This does nothing useful here. ' +
+          'each tap runs only one action, so a wait just burns a tap. Remove it, ' +
+          'or move it to "On removal", which runs its whole list.</span>';
+        fields.appendChild(warn);
+      }
+      const pill = document.createElement("span");
+      pill.className = "pill wait";
+      pill.textContent = "Wait";
+      fields.appendChild(pill);
+
+      const secInput = document.createElement("input");
+      secInput.type = "number";
+      secInput.min = "0";
+      secInput.step = "0.1";
+      secInput.style.maxWidth = "90px";
+      secInput.value = action.seconds != null ? action.seconds : 0.3;
+      secInput.addEventListener("input", () => { action.seconds = parseFloat(secInput.value) || 0; });
+      fields.appendChild(secInput);
+      fields.appendChild(document.createTextNode("seconds"));
+    }
+
+    const btns = document.createElement("div");
+    btns.className = "action-btns";
+
+    const upBtn = document.createElement("button");
+    upBtn.className = "ghost icon-btn";
+    upBtn.textContent = "↑";
+    upBtn.disabled = i === 0;
+    upBtn.addEventListener("click", () => {
+      [actions[i - 1], actions[i]] = [actions[i], actions[i - 1]];
+      render();
+    });
+
+    const downBtn = document.createElement("button");
+    downBtn.className = "ghost icon-btn";
+    downBtn.textContent = "↓";
+    downBtn.disabled = i === actions.length - 1;
+    downBtn.addEventListener("click", () => {
+      [actions[i + 1], actions[i]] = [actions[i], actions[i + 1]];
+      render();
+    });
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "danger icon-btn";
+    delBtn.textContent = "Remove";
+    delBtn.addEventListener("click", () => {
+      actions.splice(i, 1);
+      render();
+    });
+
+    const testBtn = document.createElement("button");
+    testBtn.className = "secondary icon-btn";
+    const firesKeystrokes = TYPES_KEYSTROKES.includes(action.type);
+    const testLabel = firesKeystrokes ? "▶ Test" : "🔔 Test";
+    testBtn.textContent = testLabel;
+    testBtn.title = firesKeystrokes
+      ? "Fires this action for real in a few seconds, switch focus to wherever it should land first"
+      : "Shows the real notification now (needs the bridge running)";
+    testBtn.addEventListener("click", () => {
+      if (!firesKeystrokes) {
+        send({ cmd: Command.TEST_ACTION, action });
+        return;
+      }
+      let secondsLeft = 3;
+      testBtn.disabled = true;
+      const tick = () => {
+        if (secondsLeft <= 0) {
+          testBtn.textContent = testLabel;
+          testBtn.disabled = false;
+          send({ cmd: Command.TEST_ACTION, action });
+          return;
+        }
+        testBtn.textContent = `Firing in ${secondsLeft}...`;
+        secondsLeft--;
+        setTimeout(tick, 1000);
+      };
+      tick();
+    });
+
+    if (onUnassign) {
+      const unassignBtn = document.createElement("button");
+      unassignBtn.className = "ghost icon-btn";
+      unassignBtn.textContent = "Unassign";
+      unassignBtn.title = "Detach from this tag and keep it in the library";
+      unassignBtn.addEventListener("click", () => {
+        if (!canBeUnassigned(action)) {
+          alert(whyCannotUnassign(action));
+          return;
+        }
+        onUnassign(action, i);
+      });
+      btns.appendChild(unassignBtn);
+    }
+
+    btns.append(testBtn, upBtn, downBtn, delBtn);
+
+    row.append(order, fields, btns);
+    return row;
+  }
+
+  render();
+
+  return {
+    getActions: () => JSON.parse(JSON.stringify(actions)),
+    setActions: (next) => { actions = JSON.parse(JSON.stringify(next || [])); render(); },
+  };
+}
+
+// Lets a tag's on_tap list run as a sequence (all actions, in order, per
+// tap) or a cycle (one action per tap). `onChange` re-renders the action
+// editor, since "wait" is only offered in sequence mode.
+function makeTapModeSelect(current, onChange) {
+  const wrap = document.createElement("div");
+  wrap.className = "row";
+  const label = document.createElement("label");
+  label.textContent = "On tap:";
+  const select = document.createElement("select");
+  select.style.maxWidth = "280px";
+  select.innerHTML = `
+    <option value="${TapMode.SEQUENCE}">Run all actions in order (one tap does everything)</option>
+    <option value="${TapMode.CYCLE}">Cycle: one action per tap (1, 2, 3, 1, 2, 3...)</option>
+  `;
+  select.value = current || TapMode.SEQUENCE;
+  select.addEventListener("change", () => onChange(select.value));
+  wrap.append(label, select);
+  return wrap;
+}
+
+// ---------- Action sets ----------
+// A "set" is a named group of actions. It is the same thing whether or not a
+// tag is attached: tags[] entries have a `uid`, library[] entries do not.
+// Keeping one shape means one editor and one list rather than two of each.
+// Actions whose value is encrypted with a tag's key can never sit in an
+// unassigned set, because without that tag nothing can decrypt them.
+function canBeUnassigned(action) {
+  return !NEEDS_TAG_KEY.includes(action.type);
+}
+
+function whyCannotUnassign(action) {
+  const which = action.type === ActionType.UNLOCK ? "An Unlock action" : "A saved-secret action";
+  return which + " is encrypted with its tag's key, so it cannot exist " +
+         "without a tag attached. There would be nothing able to decrypt it. " +
+         "Attach a tag instead, or delete the action.";
+}
+
+function blockedForUnassigned(set) {
+  return [...(set.on_tap || []), ...(set.on_remove || [])].find((a) => !canBeUnassigned(a));
+}
+
+// ---------- Tags list ----------
+let currentConfig = { tags: [] };
+const editEditors = {}; // uid -> {onTap, onRemove} editor handles, while a tag's edit panel is open
+
+function summarizeActions(actions) {
+  if (!actions || actions.length === 0) return '<span class="empty">none</span>';
+  return actions.map((a) => {
+    if (a.type === ActionType.UNLOCK) return '<span class="pill unlock">Unlock</span>';
+    if (a.type === ActionType.LOCK) return `<span class="pill lock">🔒 Lock (${a.os || "universal"})</span>`;
+    if (a.type === ActionType.KEYS) return `<span class="pill keys">${keysToLabel(a.keys) || "(no keys)"}</span>`;
+    if (a.type === ActionType.TEXT) return `<span class="pill text">"${(a.text || "").slice(0, 12)}"</span>`;
+    if (a.type === ActionType.WAIT) return `<span class="pill wait">wait ${a.seconds}s</span>`;
+    if (a.type === ActionType.SECRET) {
+      const found = (currentConfig.secrets || []).find((x) => x.id === a.id);
+      return `<span class="pill unlock">🔑 ${found ? found.label : "(unset secret)"}</span>`;
+    }
+    if (a.type === ActionType.OPEN_URL) {
+      let host = a.url || "(no link)";
+      try { host = new URL(a.url).hostname || host; } catch (e) {}
+      return `<span class="pill url">🔗 ${host}</span>`;
+    }
+    if (a.type === ActionType.NOTIFY) return `<span class="pill notify">🔔 ${renderReminder(a).body}</span>`;
+    return "";
+  }).join(" ");
+}
+
+function renderTags(cfg) {
+  currentConfig = cfg;
+  if (cfg.theme && cfg.theme !== themeChoice) applyTheme(cfg.theme);
+  if (typeof cfg.debug_log === "boolean" && cfg.debug_log !== debugLog) applyDebugLog(cfg.debug_log);
+  const pwState = $("pwState");
+  pwState.textContent = cfg.has_password ? "set (encrypted, tag-locked)" : "not set";
+  pwState.className = "pill" + (cfg.has_password ? " unlock" : "");
+  $("resetPwBtn").classList.toggle("hidden", !cfg.has_password);
+  $("debounceInput").value = cfg.lock_debounce_ms || 1500;
+
+  const list = $("setsList");
+  list.innerHTML = "";
+  // One list. A set with no uids is simply one that has no tag attached yet.
+  const sets = [...(cfg.tags || [])];
+  $("setsEmpty").classList.toggle("hidden", sets.length > 0);
+
+  for (const tag of sets) {
+    const uids = tag.uids || [];
+    const attached = uids.length > 0;
+    const key = tag.id;
+
+    const block = document.createElement("div");
+    block.className = "tag-block";
+
+    const head = document.createElement("div");
+    head.className = "tag-head";
+
+    const nameWrap = document.createElement("div");
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.value = tag.label || "";
+    nameInput.style.fontWeight = "600";
+    nameInput.addEventListener("change", () =>
+      send({ cmd: Command.RENAME_SET, id: tag.id, label: nameInput.value }));
+
+    // One chip per attached tag, each with its own remove button, so a
+    // single tag can be taken off without disturbing the others.
+    const uidWrap = document.createElement("div");
+    uidWrap.className = "uid";
+    if (!uids.length) {
+      const none = document.createElement("span");
+      none.className = "pill";
+      none.textContent = "no tag attached";
+      uidWrap.appendChild(none);
+    }
+    for (const uid of uids) {
+      const chip = document.createElement("span");
+      chip.className = "pill unlock";
+      chip.style.cursor = "default";
+      chip.textContent = uid + " ";
+      const x = document.createElement("a");
+      x.textContent = "\u00d7";
+      x.href = "#";
+      x.style.cssText = "color:inherit;text-decoration:none;font-weight:700;padding-left:2px;";
+      x.title = "Detach this tag (keeps the actions)";
+      x.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        const lastOne = uids.length === 1;
+        const blocked = lastOne ? blockedForUnassigned(tag) : null;
+        if (blocked) { alert(whyCannotUnassign(blocked)); return; }
+        send({ cmd: Command.DETACH_UID, uid });
+      });
+      chip.appendChild(x);
+      uidWrap.appendChild(chip);
+    }
+    nameWrap.append(nameInput, uidWrap);
+
+    const headBtns = document.createElement("div");
+    const editBtn = document.createElement("button");
+    editBtn.className = "secondary icon-btn";
+    editBtn.textContent = editEditors[key] ? "Close" : "Edit actions";
+    editBtn.addEventListener("click", () => {
+      if (editEditors[key]) {
+        delete editEditors[key];
+      } else {
+        editEditors[key] = true;
+      }
+      renderTags(currentConfig);
+    });
+
+    // Attaching is always available: a set can carry several tags.
+    const attachBtn = document.createElement("button");
+    attachBtn.className = "ghost icon-btn";
+    attachBtn.textContent = attached ? "Attach another tag" : "Attach a tag";
+    attachBtn.title = "Tap a tag to make it trigger this set";
+    const attachNote = document.createElement("div");
+    attachNote.className = "status";
+    attachNote.style.fontSize = "12px";
+    attachBtn.addEventListener("click", () => {
+      send({ cmd: Command.START_PAIRING, set_id: tag.id, label: tag.label });
+      setStatus(attachNote, "Tap the tag you want to attach (15s)...", "busy");
+      setTimeout(() => {
+        if (attachNote.textContent.startsWith("Tap the tag")) {
+          setStatus(attachNote, "Timed out, try again.", "err");
+        }
+      }, 15000);
+    });
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "danger icon-btn";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => {
+      if (!confirm(`Delete "${tag.label || "this set"}" and all of its actions?`)) return;
+      send({ cmd: Command.REMOVE_SET, id: tag.id });
+    });
+    headBtns.append(editBtn, attachBtn, removeBtn);
+
+    head.append(nameWrap, headBtns);
+    block.appendChild(head);
+    block.appendChild(attachNote);
+
+    const summary = document.createElement("div");
+    summary.style.marginTop = "8px";
+    summary.style.fontSize = "12px";
+    summary.innerHTML =
+      `<div style="color: var(--muted); margin-bottom: 4px;">On tap ` +
+      `(${(tag.tap_mode || TapMode.SEQUENCE) === TapMode.CYCLE ? "one per tap, cycling" : "all in order"}):` +
+      `</div>${summarizeActions(tag.on_tap)}` +
+      `<div style="color: var(--muted); margin: 8px 0 4px;">On removal:</div>${summarizeActions(tag.on_remove)}`;
+    block.appendChild(summary);
+
+    if (editEditors[key]) {
+      const editWrap = document.createElement("div");
+      editWrap.style.marginTop = "10px";
+
+      let tapMode = tag.tap_mode || TapMode.SEQUENCE;
+      const onTapContainer = document.createElement("div");
+      const unassignFromTag = (action, index) => {
+        const remaining = onTapEditor.getActions().filter((_, j) => j !== index);
+        send({ cmd: Command.SET_TAG_ACTIONS, id: tag.id, on_tap: remaining,
+               on_remove: onRemoveEditor.getActions(), tap_mode: tapMode });
+        send({ cmd: Command.NEW_SET, label: tag.label + " action",
+               on_tap: [action], on_remove: [], tap_mode: TapMode.SEQUENCE });
+      };
+      let onTapEditor = createActionEditor(onTapContainer, tag.on_tap,
+                                           tapMode === TapMode.SEQUENCE, unassignFromTag);
+      const onTapLabel = document.createElement("div");
+      const renderMode = () => {
+        onTapLabel.innerHTML = "";
+        onTapLabel.appendChild(makeTapModeSelect(tapMode, (mode) => {
+          tapMode = mode;
+          const keep = onTapEditor.getActions();
+          onTapEditor = createActionEditor(onTapContainer, keep,
+                                           mode === TapMode.SEQUENCE, unassignFromTag);
+          renderMode();
+        }));
+      };
+      renderMode();
+
+      const onRemoveLabel = document.createElement("div");
+      onRemoveLabel.style.fontSize = "12px";
+      onRemoveLabel.style.color = "var(--muted)";
+      onRemoveLabel.style.marginTop = "10px";
+      onRemoveLabel.textContent = "On removal:";
+      const onRemoveContainer = document.createElement("div");
+      const onRemoveEditor = createActionEditor(onRemoveContainer, tag.on_remove, true);
+
+      const saveBtn = document.createElement("button");
+      saveBtn.textContent = "Save changes";
+      saveBtn.style.marginTop = "10px";
+      saveBtn.addEventListener("click", () => {
+        const nextOnTap = onTapEditor.getActions();
+        const nextOnRemove = onRemoveEditor.getActions();
+        if (!attached) {
+          const blocked = blockedForUnassigned({ on_tap: nextOnTap, on_remove: nextOnRemove });
+          if (blocked) { alert(whyCannotUnassign(blocked)); return; }
+        }
+        send({ cmd: Command.SET_TAG_ACTIONS, id: tag.id,
+               on_tap: nextOnTap, on_remove: nextOnRemove, tap_mode: tapMode });
+        delete editEditors[key];
+      });
+
+      editWrap.append(onTapLabel, onTapContainer, onRemoveLabel, onRemoveContainer, saveBtn);
+      block.appendChild(editWrap);
+    }
+
+    list.appendChild(block);
+  }
+}
+
+// ---------- Password: write-only, replace-only ----------
+// The device never sends the password back (get_config strips it), so there
+// is nothing here to reveal. Changing it requires proving knowledge of the
+// current one: we send a check value and the device just compares it, so
+// the old password itself never crosses the wire.
+//
+// The check value is stored on the device, so anyone who copies its flash
+// can try to guess the password against it. A salted, deliberately slow
+// PBKDF2 makes each guess cost 600,000 hash rounds instead of one.
+const PASSWORD_KDF = "pbkdf2-sha256-600000";
+
+const bytesToHex = (bytes) =>
+  [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
+const hexToBytes = (hex) =>
+  new Uint8Array((hex.match(/../g) || []).map((h) => parseInt(h, 16)));
+
+async function sha256Hex(str) {
+  return bytesToHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)));
+}
+
+// `kdf` and `saltHex` come from the device's config. An empty `kdf` is the
+// original unsalted SHA-256, kept so a password set before salts existed can
+// still be verified once and replaced.
+async function passwordCheckValue(password, kdf, saltHex) {
+  if (!kdf) return sha256Hex(password);
+  const match = /^pbkdf2-sha256-(\d+)$/.exec(kdf);
+  if (!match) throw new Error("unsupported password check method: " + kdf);
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: hexToBytes(saltHex), iterations: Number(match[1]) },
+    key, 256);
+  return bytesToHex(bits);
+}
+
+function closePwGate() {
+  $("pwGate").innerHTML = "";
+  $("pwGate").classList.add("hidden");
+}
+
+function openPwGate() {
+  const gate = $("pwGate");
+  gate.classList.remove("hidden");
+  gate.innerHTML = "";
+
+  const hasPassword = !!currentConfig.has_password;
+
+  const label = document.createElement("div");
+  label.style.fontSize = "12px";
+  label.style.color = "var(--muted)";
+  label.style.marginBottom = "8px";
+  label.textContent = hasPassword
+    ? "Enter the current password, then the new one:"
+    : "Set the unlock password (this is your computer's login password):";
+  gate.appendChild(label);
+
+  const row = document.createElement("div");
+  row.className = "row";
+
+  let oldInput;
+  if (hasPassword) {
+    oldInput = makeSecretInput("Current password");
+    row.appendChild(makeRevealToggle(oldInput));
+    row.appendChild(oldInput);
+  }
+  const newInput = makeSecretInput("New password");
+  const confirmInput = makeSecretInput("Confirm new password");
+  row.append(makeRevealToggle(newInput), newInput, makeRevealToggle(confirmInput), confirmInput);
+
+  const submitBtn = document.createElement("button");
+  submitBtn.textContent = "Save";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.className = "secondary";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", closePwGate);
+  row.append(submitBtn, cancelBtn);
+  gate.appendChild(row);
+
+  const note = document.createElement("div");
+  note.className = "status";
+  note.style.fontSize = "12px";
+  gate.appendChild(note);
+
+  submitBtn.addEventListener("click", async () => {
+    if (!newInput.value) {
+      setStatus(note, "New password can't be empty.", "err");
+      return;
+    }
+    if (newInput.value !== confirmInput.value) {
+      setStatus(note, "New passwords don't match.", "err");
+      return;
+    }
+    setStatus(note, "Checking...", "busy");
+    const newSalt = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
+    let oldHash = "";
+    let newHash;
+    try {
+      if (hasPassword) {
+        oldHash = await passwordCheckValue(
+          oldInput.value, currentConfig.password_kdf || "", currentConfig.password_salt || "");
+      }
+      newHash = await passwordCheckValue(newInput.value, PASSWORD_KDF, newSalt);
+    } catch (e) {
+      setStatus(note, String(e.message || e), "err");
+      return;
+    }
+    setStatus(note, "Now tap the tag that should unlock this computer...", "busy");
+    await send({
+      cmd: Command.SET_PASSWORD,
+      value: newInput.value,
+      old_hash: oldHash,
+      new_hash: newHash,
+      new_salt: newSalt,
+      new_kdf: PASSWORD_KDF,
+    });
+  });
+}
+
+$("changePwBtn").addEventListener("click", openPwGate);
+
+// Forgets only the password (for a forgotten password, or to start over);
+// tags, actions and saved secrets are kept. Unlock actions then do nothing
+// until a new password is set.
+$("resetPwBtn").addEventListener("click", () => {
+  if (!currentConfig.has_password) return;
+  if (confirm("Forget the stored unlock password? Tags, actions and saved secrets are kept. "
+              + "Unlock actions will do nothing until you set a new password.")) {
+    closePwGate();
+    send({ cmd: Command.RESET_PASSWORD });
+  }
+});
+
+// ---------- Reveal toggle for password inputs ----------
+// Only ever shows what the user is currently typing into that box. Stored
+// passwords/secrets are never sent back by the device, so there is nothing
+// here that could reveal one.
+function makeSecretInput(placeholder) {
+  const input = document.createElement("input");
+  // Deliberately NOT type=password: that is what makes browsers offer to
+  // save a credential and ask for a username. CSS does the masking instead.
+  input.type = "text";
+  input.className = "masked";
+  input.placeholder = placeholder;
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.setAttribute("autocorrect", "off");
+  input.setAttribute("autocapitalize", "off");
+  input.setAttribute("data-1p-ignore", "");   // 1Password
+  input.setAttribute("data-lpignore", "true"); // LastPass
+  input.setAttribute("data-form-type", "other");
+  // If a browser lacks -webkit-text-security the text would be visible, so
+  // fall back to a real password field there, readable is worse than a
+  // save prompt.
+  if (!CSS.supports("-webkit-text-security", "disc") && !CSS.supports("text-security", "disc")) {
+    input.dataset.noCssMask = "1";
+    input.type = "password";
+    input.classList.remove("masked");
+  }
+  return input;
+}
+
+function isMasked(input) {
+  return input.dataset.noCssMask
+    ? input.type === "password"
+    : input.classList.contains("masked");
+}
+
+function setMasked(input, masked) {
+  // Browsers without -webkit-text-security have to toggle the real type;
+  // everywhere else the type stays "text" so no password manager engages.
+  if (input.dataset.noCssMask) {
+    input.type = masked ? "password" : "text";
+  } else {
+    input.classList.toggle("masked", masked);
+  }
+}
+
+function makeRevealToggle(input) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "secondary icon-btn";
+  btn.textContent = "👁";
+  btn.title = "Show what I'm typing";
+  btn.setAttribute("aria-label", "Show what I'm typing");
+  btn.addEventListener("click", () => {
+    const hidden = isMasked(input);
+    setMasked(input, !hidden);
+    btn.textContent = hidden ? "🙈" : "👁";
+    btn.title = hidden ? "Hide it again" : "Show what I'm typing";
+    input.focus();
+  });
+  return btn;
+}
+
+
+// Building a brand-new action with no tag: the editor refuses the types
+// that need a tag key, since there would be no key to encrypt them with.
+
+$("addLibBtn").addEventListener("click", () => {
+  const label = $("newTagLabel").value.trim();
+  const onTap = newOnTapEditor.getActions();
+  const onRemove = newOnRemoveEditor.getActions();
+  if (!label) {
+    setStatus($("libStatus"), "Give the set a name first.", "err");
+    return;
+  }
+  if (!onTap.length && !onRemove.length) {
+    setStatus($("libStatus"), "Add at least one action first.", "err");
+    return;
+  }
+  const blocked = blockedForUnassigned({ on_tap: onTap, on_remove: onRemove });
+  if (blocked) { alert(whyCannotUnassign(blocked)); return; }
+
+  send({ cmd: Command.NEW_SET, label, on_tap: onTap,
+         on_remove: onRemove, tap_mode: newTapMode });
+  $("newTagLabel").value = "";
+  newOnTapEditor.setActions([]);
+  newOnRemoveEditor.setActions([]);
+  setStatus($("libStatus"), "Saved without a tag \u2014 attach one whenever you like.", "ok");
+});
+
+$("themeBtn").addEventListener("click", () => {
+  const next = THEMES[(THEMES.indexOf(themeChoice) + 1) % THEMES.length];
+  applyTheme(next);
+  if (activeSend) send({ cmd: Command.SET_THEME, value: next });
+});
+
+// Keep the button label honest when the system flips while on "auto".
+window.matchMedia("(prefers-color-scheme: dark)")
+  .addEventListener("change", () => applyTheme(themeChoice));
+
+$("blockInfoBtn").addEventListener("click", () => {
+  const panel = $("blockInfo");
+  const open = panel.classList.toggle("hidden") === false;
+  $("blockInfoBtn").setAttribute("aria-expanded", String(open));
+});
+
+// ---------- Wiring up static controls ----------
+$("connectSerialBtn").addEventListener("click", connectViaSerial);
+$("connectBridgeBtn").addEventListener("click", connectViaBridge);
+
+$("saveDebounceBtn").addEventListener("click", () =>
+  send({ cmd: Command.SET_LOCK_DEBOUNCE_MS, value: parseInt($("debounceInput").value, 10) || 1500 })
+);
+
+let newTapMode = TapMode.SEQUENCE;
+let newOnTapEditor = createActionEditor($("newOnTapEditor"), [{ type: ActionType.UNLOCK }], true);
+function renderNewTapMode() {
+  $("newTapMode").innerHTML = "";
+  $("newTapMode").appendChild(makeTapModeSelect(newTapMode, (mode) => {
+    newTapMode = mode;
+    const keep = newOnTapEditor.getActions();
+    newOnTapEditor = createActionEditor($("newOnTapEditor"), keep, mode === TapMode.SEQUENCE);
+    renderNewTapMode();
+  }));
+}
+renderNewTapMode();
+const newOnRemoveEditor = createActionEditor($("newOnRemoveEditor"), [], true);
+
+let pairTimer = null;
+$("pairBtn").addEventListener("click", async () => {
+  clearTimeout(pairTimer);
+  const label = $("newTagLabel").value.trim();
+  const writeLabel = $("writeLabelCheck").checked;
+  await send({
+    cmd: Command.START_PAIRING,
+    label,
+    write_label: writeLabel,
+    on_tap: newOnTapEditor.getActions(),
+    on_remove: newOnRemoveEditor.getActions(),
+    tap_mode: newTapMode,
+  });
+  setStatus($("pairStatus"), "Waiting for tag (15s)...", "busy");
+  pairTimer = setTimeout(() => {
+    if ($("pairStatus").textContent.startsWith("Waiting")) {
+      setStatus($("pairStatus"), "Timed out, try again", "err");
+    }
+  }, 15000);
+});
+
+
+// Block 0 is valid (manufacturer block, readable), so this can't use
+// `parseInt(...) || 4`: 0 is falsy, and that silently read block 4 instead.
+function selectedBlock() {
+  const n = parseInt($("blockInput").value, 10);
+  return Number.isNaN(n) ? 4 : n;
+}
+
+// ---------- Read all blocks ----------
+const BLOCK_KIND_LABEL = {
+  manufacturer: "Manufacturer (UID)",
+  trailer: "Sector trailer (access keys)",
+  key: "Encryption key",
+  label: "Label",
+  data: "",
+};
+
+function renderDump(msg) {
+  const box = $("dumpResult");
+  box.innerHTML = "";
+  const table = document.createElement("table");
+  table.className = "dump-table";
+  const head = table.insertRow();
+  for (const title of ["Block", "Sector", "Hex", "Text", ""]) {
+    const th = document.createElement("th");
+    th.textContent = title;
+    head.appendChild(th);
+  }
+  for (const b of msg.blocks) {
+    const row = table.insertRow();
+    if (b.block % 4 === 0) row.className = "sector-start";
+    const cell = (text, cls) => {
+      const td = row.insertCell();
+      td.textContent = text;
+      if (cls) td.className = cls;
+      return td;
+    };
+    cell(String(b.block), "mono");
+    cell(String(Math.floor(b.block / 4)), "muted");
+    if (b.hidden) {
+      cell("hidden: never read, so the key can't reach the screen", "muted");
+      cell("");
+    } else if (b.error) {
+      cell("couldn't read this sector", "warn");
+      cell("");
+    } else {
+      cell(b.hex, "mono");
+      cell(b.text, "mono");
+    }
+    cell(BLOCK_KIND_LABEL[b.kind] || "", b.kind === "trailer" || b.kind === "key" ? "warn" : "muted");
+  }
+  box.appendChild(table);
+
+  // The table stays until cleared, so a later single-block read doesn't
+  // look like part of it.
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "secondary";
+  clearBtn.textContent = "Clear";
+  clearBtn.style.marginTop = "8px";
+  clearBtn.addEventListener("click", clearDump);
+  box.appendChild(clearBtn);
+
+  box.classList.remove("hidden");
+}
+
+function clearDump() {
+  const box = $("dumpResult");
+  box.innerHTML = "";
+  box.classList.add("hidden");
+  setStatus($("blockStatus"), "", "");
+}
+
+$("readAllBtn").addEventListener("click", () => {
+  clearDump();
+  setStatus($("blockStatus"), "Waiting for tag... hold it still, reading takes a second or two.", "busy");
+  send({
+    cmd: Command.READ_TAG_ALL,
+    key_hex: $("keyInput").value.trim() || undefined,
+  });
+});
+
+$("readBlockBtn").addEventListener("click", () => {
+  setStatus($("blockStatus"), "Waiting for tag...", "busy");
+  send({
+    cmd: Command.READ_TAG_DATA,
+    block: selectedBlock(),
+    key_hex: $("keyInput").value.trim() || undefined,
+  });
+});
+
+// Block 5 holds the tag's AES key. Writing there destroys the stored
+// password and every secret encrypted with it, with no way back, so it
+// takes an explicit yes, and the device refuses without the flag too.
+const KEY_BLOCK = 5;
+
+$("writeBlockBtn").addEventListener("click", () => {
+  const block = selectedBlock();
+  let confirmKeyOverwrite = false;
+
+  if (block === KEY_BLOCK) {
+    const warning =
+      "Block " + KEY_BLOCK + " holds this tag's encryption key.\n\n" +
+      "If this tag has been used to store the unlock password or any saved " +
+      "secrets, writing here DESTROYS that key permanently. Those values " +
+      "become impossible to decrypt, and you would have to set the password " +
+      "and re-save every secret from scratch.\n\n" +
+      "There is no recovery and no undo.\n\n" +
+      "Write to block " + KEY_BLOCK + " anyway?";
+    if (!confirm(warning)) {
+      setStatus($("blockStatus"), "Cancelled, the tag's key was left alone.", "ok");
+      return;
+    }
+    confirmKeyOverwrite = true;
+  }
+
+  setStatus($("blockStatus"), "Waiting for tag...", "busy");
+  send({
+    cmd: Command.WRITE_TAG_DATA,
+    block,
+    text: $("dataInput").value,
+    key_hex: $("keyInput").value.trim() || undefined,
+    confirm_key_overwrite: confirmKeyOverwrite || undefined,
+  });
+});
+
+// Only empties what's on screen; the device keeps nothing to clear.
+$("debugLogToggle").checked = debugLog;
+$("debugLogToggle").addEventListener("change", (e) => {
+  applyDebugLog(e.target.checked);
+  send({ cmd: Command.SET_DEBUG_LOG, value: debugLog });
+});
+
+$("clearLogBtn").addEventListener("click", () => {
+  logLines.length = 0;
+  $("log").textContent = "";
+});
+
+$("resetBtn").addEventListener("click", () => {
+  if (confirm("Erase all tags and reset the device to defaults?")) {
+    send({ cmd: Command.FACTORY_RESET });
+  }
+});
+</script>
+</body>
+</html>

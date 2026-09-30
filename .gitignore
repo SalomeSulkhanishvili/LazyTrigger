@@ -1,0 +1,39 @@
+# Device configuration. A copy of the Pico's config.json holds the
+# encrypted unlock password, saved secrets and the password check value,
+# so it must never be committed, wherever it ends up.
+config.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments (`make setup` creates .venv)
+.venv/
+venv/
+env/
+
+# CircuitPython downloads and library bundles fetched during setup
+*.uf2
+adafruit-circuitpython-bundle-*/
+
+# Logs
+*.log
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini

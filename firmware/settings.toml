@@ -1,0 +1,33 @@
+# Hardware and timing settings for the lazyTrigger firmware.
+#
+# Edit these to match your build, then run `make upload` to copy them to the
+# Pico. Every line is optional: a missing or commented-out setting uses the
+# default shown here. Tags, actions and the password are not set here; they
+# live on the device and are changed in the configurator.
+#
+# CircuitPython reads this file itself (it is the standard settings.toml on
+# the CIRCUITPY drive). Values must be quoted strings or whole numbers.
+
+# ---- Reader wiring --------------------------------------------------------
+# Pico GPIO names (GP0 to GP28), not physical pin numbers: GP18 is physical
+# pin 24. SCK, MOSI and MISO must belong to the same hardware SPI block
+# (SPI0: SCK GP2/6/18/22, MOSI GP3/7/19, MISO GP0/4/16/20; SPI1: SCK
+# GP10/14/26, MOSI GP11/15/27, MISO GP8/12/28). CS and RST can be any
+# free GPIO. See README.md, "Wiring".
+RFID_SCK = "GP18"
+RFID_MOSI = "GP19"
+RFID_MISO = "GP16"
+RFID_CS = "GP17"
+RFID_RST = "GP20"
+
+# ---- Timing ---------------------------------------------------------------
+# Time between checks for a tag, in milliseconds. Lower reacts faster.
+POLL_INTERVAL_MS = 50
+
+# How long pairing a new tag waits for a tap, in seconds.
+PAIRING_TIMEOUT_S = 15
+
+# How long a tag's encryption key stays in memory after a tap (only in RAM,
+# never saved), so several secrets can be saved without re-tapping.
+# 0 means a tap is needed for every operation.
+KEY_CACHE_S = 300
