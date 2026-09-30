@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <title>lazyTrigger Configurator</title>
+<link rel="icon" type="image/png" href="icon.png" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   /* Dark is the default palette. The light one is applied when the system
@@ -273,7 +274,45 @@
     <button id="themeBtn" class="secondary icon-btn" title="Switch between light and dark">Theme</button>
   </div>
 
-  <div class="card">
+  <!-- Shown only when the page is served by the bridge (the app or
+       `make start`), which is what carries out these buttons. -->
+  <div id="setupCard" class="card hidden">
+    <h2>Setup</h2>
+    <div class="row">
+      <span id="setupDeviceState" class="status">Checking for your device...</span>
+    </div>
+    <div id="setupHelp" class="row" style="color: var(--muted); font-size: 12px; line-height: 1.5;"></div>
+    <div id="setupInstallRow" class="row hidden">
+      <label for="boardSelect" id="boardLabel">Board</label>
+      <select id="boardSelect" style="max-width: 220px">
+        <option value="">Pico or Pico 2</option>
+        <option value="raspberry_pi_pico_w">Pico W</option>
+        <option value="raspberry_pi_pico2_w">Pico 2 W</option>
+      </select>
+      <button id="setupInstallBtn">Install lazyTrigger on this Pico</button>
+    </div>
+    <div id="setupUpdateRow" class="row hidden">
+      <button id="setupUpdateBtn" class="secondary">Update device software</button>
+      <span style="color: var(--muted); font-size: 12px;">Copies this version's firmware to the device. Tags, actions and settings are kept.</span>
+    </div>
+    <div id="setupLog" class="log hidden" style="margin-bottom: 10px;"></div>
+    <div class="row">
+      <label style="display:inline-flex;align-items:center;gap:6px;min-width:0;color:var(--text);">
+        <input type="checkbox" id="autostartToggle" /> Start lazyTrigger when I log in
+      </label>
+    </div>
+    <div id="autostartNote" class="row" style="color: var(--muted); font-size: 12px; line-height: 1.5;">
+      At each login it checks once whether your device is plugged in, and
+      starts lazyTrigger in the background if it is. Nothing keeps running
+      when it isn't.
+    </div>
+    <div class="row" style="margin-top: 6px;">
+      <button id="quitBtn" class="ghost">Quit lazyTrigger</button>
+      <span style="color: var(--muted); font-size: 12px;">Keyboard actions keep working without it. Unlock, reminders and links pause until you open lazyTrigger again.</span>
+    </div>
+  </div>
+
+  <div id="connectionCard" class="card">
     <h2>Connection</h2>
     <div class="row">
       <button id="connectSerialBtn">Connect via Web Serial</button>
@@ -754,9 +793,15 @@ async function connectViaBridge() {
 
     bridgeEvents = new EventSource(BRIDGE_BASE + "/events");
     bridgeEvents.onmessage = (e) => handleLine(e.data);
-    bridgeEvents.onerror = () => setStatus($("connStatus"), "Bridge connection dropped", "err");
+    bridgeEvents.onerror = () => {
+      $("connectionCard").classList.remove("hidden");
+      setStatus($("connStatus"), "Bridge connection dropped", "err");
+    };
 
     setStatus($("connStatus"), "Connected via bridge (" + data.port + ")", "ok");
+    // Opened from the app, the Setup section already says the device is
+    // connected, so the connect buttons would only be greyed-out clutter.
+    if (!$("setupCard").classList.contains("hidden")) $("connectionCard").classList.add("hidden");
     onConnected();
   } catch (e) {
     setStatus(
@@ -771,6 +816,147 @@ if (!("serial" in navigator)) {
   $("noSerialNote").classList.remove("hidden");
   $("connectSerialBtn").disabled = true;
 }
+
+// ---------- Setup (only when served by the bridge) ----------
+// The bridge carries out these buttons (/app/... in bridge/serial_bridge.py).
+// Polling it shows a Pico the moment it is plugged in and an install's
+// progress, and tells the app's bridge that the page is still open.
+let setupPollTimer = null;
+let setupQuit = false;
+let autoConnectTried = null; // the port last auto-connected to, so a failure isn't retried every poll
+
+async function appPost(path, body) {
+  const r = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.error || "failed");
+  return data;
+}
+
+function renderSetup(info) {
+  const dev = info.device || {};
+  const job = info.job || {};
+  const state = $("setupDeviceState");
+  const help = $("setupHelp");
+  let showInstall = false, showBoard = false, showUpdate = false;
+
+  if (job.running) {
+    setStatus(state, job.name === "update" ? "Updating the device..." : "Installing lazyTrigger...", "busy");
+    help.textContent = "Keep the device plugged in until this finishes.";
+  } else if (dev.bootloader) {
+    setStatus(state, "A new Pico is ready to set up", "ok");
+    help.textContent = "Choose your board, then install. This downloads CircuitPython and " +
+      "lazyTrigger from the internet and takes about a minute.";
+    showInstall = showBoard = true;
+  } else if (dev.circuitpy === "new") {
+    setStatus(state, "CircuitPython found, lazyTrigger isn't installed yet", "ok");
+    help.textContent = "Install copies lazyTrigger onto the Pico.";
+    showInstall = true;
+  } else if (info.connected) {
+    setStatus(state, "Device connected (" + info.connected + ")", "ok");
+    help.textContent = "";
+    showUpdate = true;
+  } else if (dev.circuitpy === "installed") {
+    setStatus(state, "Device found, starting up...", "busy");
+    help.textContent = "If this doesn't change within a few seconds, unplug the device and plug it back in.";
+  } else {
+    setStatus(state, "No device found", "");
+    // One span: these rows are flex containers, which would split the
+    // sentence at the <strong>.
+    help.innerHTML = "<span>Plug in your lazyTrigger device. Setting up a brand-new Pico? " +
+      "Hold its <strong>BOOTSEL</strong> button while plugging it in.</span>";
+  }
+  $("setupInstallRow").classList.toggle("hidden", !showInstall);
+  $("boardSelect").classList.toggle("hidden", !showBoard);
+  $("boardLabel").classList.toggle("hidden", !showBoard);
+  $("setupUpdateRow").classList.toggle("hidden", !showUpdate);
+  $("setupInstallBtn").disabled = job.running;
+  $("setupUpdateBtn").disabled = job.running;
+
+  // The last job's output stays visible after it ends, so its result
+  // (or its error) can be read.
+  if (job.name) {
+    const el = $("setupLog");
+    el.classList.remove("hidden");
+    const text = job.lines.join("\n");
+    if (el.textContent !== text) {
+      el.textContent = text;
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+
+  // A login item has to point at where the app will stay. macOS runs a
+  // downloaded app from a temporary copy until it leaves Downloads.
+  const toggle = $("autostartToggle");
+  toggle.checked = !!info.autostart;
+  toggle.disabled = !!info.translocated && !info.autostart;
+  $("autostartNote").innerHTML = info.translocated
+    ? "<span><strong>Move lazyTrigger to your Applications folder first</strong>, then open it " +
+      "from there. macOS runs apps straight from Downloads from a temporary copy, which " +
+      "a login item can't use.</span>"
+    : "At each login it checks once whether your device is plugged in, and starts " +
+      "lazyTrigger in the background if it is. Nothing keeps running when it isn't.";
+
+  // Opened from the app, the device is connected by the time the page
+  // loads; connect to it rather than asking for a click.
+  if (info.connected && !activeSend && autoConnectTried !== info.connected) {
+    autoConnectTried = info.connected;
+    connectViaBridge();
+  }
+}
+
+async function pollSetup() {
+  clearTimeout(setupPollTimer);
+  if (setupQuit) return;
+  let running = false;
+  try {
+    const r = await fetch("/app/info");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const info = await r.json();
+    $("setupCard").classList.remove("hidden");
+    renderSetup(info);
+    running = info.job && info.job.running;
+  } catch (e) {
+    if (!$("setupCard").classList.contains("hidden")) {
+      setStatus($("setupDeviceState"),
+        "lazyTrigger isn't running. Open the lazyTrigger app again to continue.", "err");
+    }
+  }
+  setupPollTimer = setTimeout(pollSetup, running ? 1000 : 2000);
+}
+
+async function setupAction(path, body) {
+  try {
+    await appPost(path, body);
+  } catch (e) {
+    setStatus($("setupDeviceState"), "Couldn't do that: " + e.message, "err");
+  }
+  pollSetup();
+}
+
+$("setupInstallBtn").addEventListener("click", () =>
+  setupAction("/app/setup-device", { board: $("boardSelect").value }));
+$("setupUpdateBtn").addEventListener("click", () => setupAction("/app/update-device"));
+$("autostartToggle").addEventListener("change", (e) =>
+  setupAction("/app/autostart", { enabled: e.target.checked }));
+$("quitBtn").addEventListener("click", async () => {
+  if (!confirm("Quit lazyTrigger? Open the app again whenever you need it.")) return;
+  try {
+    await appPost("/app/quit");
+  } catch (e) {
+    return setStatus($("setupDeviceState"), "Couldn't quit: " + e.message, "err");
+  }
+  setupQuit = true;
+  clearTimeout(setupPollTimer);
+  setStatus($("setupDeviceState"), "lazyTrigger has quit. You can close this tab.", "");
+  for (const id of ["setupInstallRow", "setupUpdateRow", "setupHelp"]) $(id).classList.add("hidden");
+  for (const id of ["autostartToggle", "quitBtn"]) $(id).disabled = true;
+});
+
+if (location.protocol.startsWith("http")) pollSetup();
 
 // ---------- Keycode helpers ----------
 // Names must match adafruit_hid.keycode.Keycode attributes on the device.

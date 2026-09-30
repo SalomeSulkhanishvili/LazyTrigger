@@ -20,6 +20,10 @@ env/
 *.uf2
 adafruit-circuitpython-bundle-*/
 
+# App builds (`make app`)
+build/
+dist/
+
 # Logs
 *.log
 

@@ -3,6 +3,7 @@
 #   make            set up everything (Python env, firmware on a new Pico)
 #   make start      after plugging in the Pico: run the bridge in the background
 #   make autostart  optional: check once at each login and start it if plugged in
+#   make app        build the double-click app for this computer (into dist/)
 #   make help       list every command
 #
 # Works on macOS, Linux and Windows. All the logic lives in tools/manage.py
@@ -26,7 +27,7 @@ BOARD ?=
 
 .DEFAULT_GOAL := install
 .PHONY: install setup flash install-firmware upload start stop autostart autostart-remove \
-        status logs bridge check clean help
+        status logs bridge check app clean help
 
 install:
 	@$(MANAGE) install $(if $(BOARD),--board $(BOARD))
@@ -37,5 +38,5 @@ flash:
 upload:
 	@$(MANAGE) upload $(if $(PORT),--port $(PORT)) $(FILES)
 
-setup install-firmware start stop autostart autostart-remove status logs bridge check clean help:
+setup install-firmware start stop autostart autostart-remove status logs bridge check app clean help:
 	@$(MANAGE) $@

@@ -1,0 +1,70 @@
+name: Build the app
+
+# Pushing a version tag builds the double-click app on macOS, Windows and
+# Linux and publishes it as a GitHub release:
+#
+#     git tag v1.0.0
+#     git push origin v1.0.0
+#
+# "Run workflow" on the Actions tab builds it without releasing, to try a
+# change; the builds are then under that run's artifacts.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      # One system failing to build shouldn't hold back the others.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest      # Apple Silicon
+          - os: macos-15-intel    # Intel Macs
+          - os: windows-latest
+          - os: ubuntu-22.04      # oldest supported Ubuntu, so the build runs on newer ones too
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r app/requirements.txt
+      - run: python tools/build_app.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lazyTrigger-${{ matrix.os }}
+          path: dist/lazyTrigger-*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    # Publish whatever built, even if one system failed.
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          Download the file for your computer, then open it:
+
+          - **Mac with Apple Silicon (M1 or newer):** `lazyTrigger-macOS-AppleSilicon.zip`
+          - **Mac with an Intel processor:** `lazyTrigger-macOS-Intel.zip`
+          - **Windows:** `lazyTrigger-Windows.exe`
+          - **Linux:** `lazyTrigger-Linux`
+
+          The first time, your computer will warn that the app is from an unidentified
+          developer. The README's "Getting started" section shows how to open it anyway.
+          EOF
+          gh release create "$GITHUB_REF_NAME" artifacts/* \
+            --repo "$GITHUB_REPOSITORY" --title "lazyTrigger $GITHUB_REF_NAME" --notes-file notes.md

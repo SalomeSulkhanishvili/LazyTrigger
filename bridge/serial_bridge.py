@@ -30,23 +30,27 @@ Then open http://127.0.0.1:8787 in any browser (including Safari) and click
 "Connect via local bridge".
 """
 
+import contextlib
 import datetime
+import io
 import json
 import mimetypes
 import os
 import platform
 import queue
+import re
 import shutil
 import sys
 import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+
+import device_setup
 
 # The firmware's protocol definitions are the source of truth; import them
 # rather than repeating the strings here.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "firmware"))
+sys.path.insert(0, str(device_setup.resource_root() / "firmware"))
 
 try:
     import serial
@@ -63,7 +67,9 @@ HTTP_PORT = int(os.environ.get("LAZYTRIGGER_BRIDGE_PORT", "8787"))
 BAUD = 115200
 PING_TIMEOUT = 0.6
 
-CONFIGURATOR_DIR = Path(__file__).resolve().parent.parent / "configurator"
+# Resolved, like the paths it is compared with in _static: inside the macOS
+# app this folder is a symlink into the bundle's Resources.
+CONFIGURATOR_DIR = (device_setup.resource_root() / "configurator").resolve()
 
 ser_lock = threading.Lock()
 ser = None
@@ -388,6 +394,14 @@ RECONNECT_INTERVAL_S = 2
 UNPLUGGED_EXIT_S = 10
 
 EXIT_WHEN_UNPLUGGED = "--exit-when-unplugged" in sys.argv
+# With --exit-when-idle (how the app starts it when opened by hand), the
+# bridge also waits until the configurator page has been closed, so it can
+# be opened before the Pico is plugged in. The page checks in every couple
+# of seconds; a browser slows that to about once a minute in a background
+# tab, which PAGE_GONE_S outlasts.
+EXIT_WHEN_IDLE = "--exit-when-idle" in sys.argv
+PAGE_GONE_S = 150
+page_seen_at = time.time()
 
 
 def connection_watcher():
@@ -418,6 +432,10 @@ def connection_watcher():
             missing_since = time.time()
         elif EXIT_WHEN_UNPLUGGED and time.time() - missing_since > UNPLUGGED_EXIT_S:
             print("Pico unplugged; exiting until it is plugged in again.", flush=True)
+            os._exit(0)
+        elif (EXIT_WHEN_IDLE and time.time() - missing_since > UNPLUGGED_EXIT_S
+              and time.time() - page_seen_at > PAGE_GONE_S and not job["running"]):
+            print("No Pico and no open page; exiting.", flush=True)
             os._exit(0)
         time.sleep(RECONNECT_INTERVAL_S)
 
@@ -462,6 +480,148 @@ def reader_loop(my_ser):
                     q.put(text)
 
 
+# ---------- Setup section (/app/...) ----------
+# Installing or updating the device takes up to a couple of minutes, so it
+# runs in the background while the page polls /app/info for its progress.
+# One job at a time: two installs writing to the same Pico would corrupt it.
+job = {"name": None, "running": False, "ok": None, "lines": []}
+job_lock = threading.Lock()
+
+
+# Terminal control sequences the Pico's console sends (window titles,
+# cursor moves), which would show up as junk in the page's Setup log.
+_TERMINAL_CODES = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[A-Za-z]")
+
+
+class _JobOutput(io.TextIOBase):
+    """Stands in for stdout while a job runs code that reports by print()."""
+
+    def __init__(self, add_line, echo):
+        self.add_line = add_line
+        self.echo = echo
+        self.pending = ""
+
+    def write(self, text):
+        if self.echo is not None:
+            self.echo.write(text)
+        self.pending += text
+        while "\n" in self.pending:
+            line, self.pending = self.pending.split("\n", 1)
+            self.add_line(_TERMINAL_CODES.sub("", line).rstrip("\r"))
+        return len(text)
+
+    def flush(self):
+        if self.echo is not None:
+            self.echo.flush()
+
+
+def start_job(name, work):
+    """Run work(say) in the background. False if a job is already running."""
+    with job_lock:
+        if job["running"]:
+            return False
+        job.update(name=name, running=True, ok=None, lines=[])
+
+    def add_line(line):
+        with job_lock:
+            job["lines"].append(str(line))
+
+    out = _JobOutput(add_line, sys.stdout)
+
+    def say(msg=""):
+        out.write(str(msg) + "\n")
+
+    def run():
+        ok = False
+        try:
+            with contextlib.redirect_stdout(out):
+                work(say)
+            ok = True
+        except device_setup.SetupError as e:
+            say("Error: {}".format(e))
+        except SystemExit as e:
+            say("Error: {}".format(e.code or "failed"))
+        except Exception as e:
+            say("Error: {}".format(e))
+        with job_lock:
+            job.update(running=False, ok=ok)
+
+    threading.Thread(target=run, daemon=True).start()
+    return True
+
+
+def setup_device(board, say):
+    """Install CircuitPython (if the Pico is in BOOTSEL mode) and lazyTrigger."""
+    device_setup.flash_circuitpython(board or None, say)
+    drive = device_setup.find_drive("CIRCUITPY")
+    if drive is None:
+        raise device_setup.SetupError(
+            "no Pico found. Unplug it, hold its BOOTSEL button while plugging it back "
+            "in, and try again.")
+    device_setup.install_firmware(drive, say)
+    say("")
+    say("Done. Unplug the Pico and plug it back in to start lazyTrigger.")
+
+
+def update_device(say):
+    """Copy this copy's firmware to a running device, keeping its settings.
+
+    settings.toml is left out: it is the one file people edit on their
+    device (the reader's pins), and every value in it has a default."""
+    import upload_firmware
+
+    with ser_lock:
+        data_port = ser_port_name if ser is not None else None
+    if data_port is None:
+        raise device_setup.SetupError("the device isn't connected. Plug it in and try again.")
+    files = [f for f in upload_firmware.DEFAULT_FILES if f != "settings.toml"]
+    upload_firmware.main(files, data_port=data_port)
+    say("")
+    say("Device updated. Your tags, actions and settings are kept.")
+
+
+def app_info():
+    global page_seen_at
+    page_seen_at = time.time()
+    with job_lock:
+        job_copy = dict(job, lines=list(job["lines"]))
+    return {
+        "packaged": device_setup.FROZEN,
+        # macOS runs a downloaded app from a temporary read-only copy until
+        # it is moved out of Downloads; a login item pointing there breaks.
+        "translocated": "/AppTranslocation/" in sys.executable,
+        "autostart": device_setup.login_item_installed(),
+        "device": device_setup.device_state(),
+        "connected": ser_port_name if ser is not None else None,
+        "job": job_copy,
+    }
+
+
+def app_action(path, body):
+    """The Setup section's buttons. Returns (response, status)."""
+    if path == "/app/autostart":
+        if body.get("enabled"):
+            argv, workdir = device_setup.autostart_command()
+            device_setup.install_login_item(argv, workdir)
+        else:
+            device_setup.remove_login_item()
+        return {"ok": True, "autostart": device_setup.login_item_installed()}, 200
+    if path == "/app/setup-device":
+        board = body.get("board") or None
+        if not start_job("setup", lambda say: setup_device(board, say)):
+            return {"ok": False, "error": "already working on something"}, 409
+        return {"ok": True}, 200
+    if path == "/app/update-device":
+        if not start_job("update", update_device):
+            return {"ok": False, "error": "already working on something"}, 409
+        return {"ok": True}, 200
+    if path == "/app/quit":
+        # Answer first, so the page can say goodbye before the server goes.
+        threading.Timer(0.5, lambda: os._exit(0)).start()
+        return {"ok": True}, 200
+    return {"ok": False, "error": "not found"}, 404
+
+
 class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -473,7 +633,26 @@ class Handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
+    def _from_own_page(self):
+        """Whether a request comes from the configurator this bridge serves.
+
+        The /app endpoints install software and change login items, so
+        unlike the device commands they refuse other web pages open in the
+        browser (their Origin differs) and DNS-rebinding tricks (the Host
+        header names a different site)."""
+        own = {"127.0.0.1:{}".format(HTTP_PORT), "localhost:{}".format(HTTP_PORT)}
+        if self.headers.get("Host") not in own:
+            return False
+        origin = self.headers.get("Origin")
+        return origin is None or origin in {"http://" + h for h in own}
+
     def do_GET(self):
+        if self.path == "/app/info":
+            if not self._from_own_page():
+                self._json({"ok": False, "error": "forbidden"}, status=403)
+                return
+            self._json(app_info())
+            return
         if self.path == "/ports":
             self._json({"ports": candidate_ports(), "connected": ser_port_name})
             return
@@ -489,6 +668,17 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw.decode("utf-8")) if raw else {}
         except ValueError:
             body = {}
+
+        if self.path.startswith("/app/"):
+            if not self._from_own_page():
+                self._json({"ok": False, "error": "forbidden"}, status=403)
+                return
+            try:
+                response, status = app_action(self.path, body)
+            except Exception as e:
+                response, status = {"ok": False, "error": str(e)}, 500
+            self._json(response, status=status)
+            return
 
         if self.path == "/connect":
             try:

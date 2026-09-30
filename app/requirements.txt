@@ -1,0 +1,7 @@
+# What building the double-click app needs (tools/build_app.py).
+# The app itself only runs on pyserial; certifi gives it the certificates
+# for downloading CircuitPython, which a packaged macOS app can't find.
+pyserial>=3.5
+certifi
+pillow     # converts app/icon.png into the macOS and Windows icon formats
+pyinstaller>=6.9

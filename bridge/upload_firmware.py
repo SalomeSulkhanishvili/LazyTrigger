@@ -24,7 +24,6 @@ Usage:
 import base64
 import sys
 import time
-from pathlib import Path
 
 try:
     import serial
@@ -32,7 +31,8 @@ try:
 except ImportError:
     raise SystemExit("pyserial is required: pip3 install pyserial")
 
-FIRMWARE_DIR = Path(__file__).resolve().parent.parent / "firmware"
+from device_setup import FIRMWARE_DIR
+
 DEFAULT_FILES = ["settings.toml", "boot.py", "protocol.py", "config.py", "mfrc522.py",
                  "secretbox.py", "code.py"]
 BAUD = 115200
@@ -40,17 +40,21 @@ BAUD = 115200
 CHUNK_CHARS = 1024
 
 
-def find_console_port():
+def find_console_port(data_port=None):
     """The REPL console is the Pico port that does NOT answer our JSON
     protocol, the data port does. Probe to tell them apart rather than
-    relying on port numbering, which isn't stable across reboots."""
+    relying on port numbering, which isn't stable across reboots.
+
+    data_port: the data port when the caller already has it open (the
+    bridge), so it is left alone instead of probed."""
     candidates = [
         p.device
         for p in list_ports.comports()
         if "usbmodem" in p.device or "ttyACM" in p.device or p.device.startswith("COM")
     ]
-    data_port = None
     for device in candidates:
+        if data_port is not None:
+            break
         try:
             # write_timeout: a port nobody drains can block a write forever,
             # which hung the whole upload before anything was sent.
@@ -149,8 +153,8 @@ def upload(ser, filename):
     return False
 
 
-def main():
-    args = sys.argv[1:]
+def main(argv=None, data_port=None):
+    args = list(sys.argv[1:] if argv is None else argv)
     port = None
     if "--port" in args:
         i = args.index("--port")
@@ -159,7 +163,7 @@ def main():
         port = args[i + 1]
         del args[i : i + 2]
     files = args or DEFAULT_FILES
-    port = port or find_console_port()
+    port = port or find_console_port(data_port)
     print(f"Console port: {port}")
 
     with serial.Serial(port, BAUD, timeout=1) as ser:

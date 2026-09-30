@@ -26,35 +26,49 @@ wired to it, plus a few tags. The parts cost a few dollars and connect with
 eight wires, no soldering required. See [Hardware](#hardware) for the parts
 list and wiring.
 
-### 2. Download lazyTrigger
+### 2. Download the lazyTrigger app
 
-Download this project to your computer: on GitHub, click **Code → Download
-ZIP** and unzip it, or clone it with `git clone`. The only thing your
-computer needs is **Python 3.8 or newer** (https://www.python.org/downloads/).
+Go to the [latest release](https://github.com/SalomeSulkhanishvili/LazyTrigger/releases/latest)
+and download the file for your computer:
 
-### 3. Set it up
+| Computer | File |
+|---|---|
+| Mac with Apple Silicon (M1 or newer) | `lazyTrigger-macOS-AppleSilicon.zip` |
+| Mac with an Intel processor | `lazyTrigger-macOS-Intel.zip` |
+| Windows | `lazyTrigger-Windows.exe` |
+| Linux | `lazyTrigger-Linux` |
 
-Open a terminal in the project folder. For a brand-new Pico, hold its
-**BOOTSEL** button while plugging it in (this lets the software be
-installed on it), then run:
+Nothing else needs installing. The app is not signed by Apple or
+Microsoft (that costs a yearly fee), so the first time you open it your
+computer warns that it comes from an unidentified developer:
 
-```sh
-make
-```
+- **macOS:** unzip the download and drag **lazyTrigger** into your
+  **Applications** folder, then open it. When macOS says it can't verify
+  the app, click **Done**, open **System Settings → Privacy & Security**,
+  scroll down and click **Open Anyway** next to lazyTrigger. You only do
+  this once.
+- **Windows:** move `lazyTrigger-Windows.exe` somewhere it can stay, such
+  as your Documents folder, then open it. On "Windows protected your PC",
+  click **More info → Run anyway**.
+- **Linux:** allow the file to run (right-click → **Properties →
+  Permissions → Allow executing file as program**, or
+  `chmod +x lazyTrigger-Linux`), then open it.
 
-This one command sets up everything: it prepares the helper program on your
-computer, installs the software on the Pico, and starts the helper if the
-Pico is plugged in. It is safe to run again.
+### 3. Open it and set up the device
 
-- **Windows:** `make` works from Command Prompt without installing anything
-  else; in PowerShell type `.\make`.
-- **Pico W / Pico 2 W** boards need their own build:
-  `make BOARD=raspberry_pi_pico_w` (or `raspberry_pi_pico2_w`).
+Opening lazyTrigger opens its page in your web browser. The **Setup**
+section at the top does the rest:
+
+- **A brand-new Pico** needs its software installed once. Hold the Pico's
+  **BOOTSEL** button while plugging it in, choose your board in the page
+  and click **Install lazyTrigger on this Pico**. This takes about a
+  minute and needs an internet connection. When it says it's done, unplug
+  the Pico and plug it back in.
+- **A device that's already set up** shows as connected straight away.
 
 ### 4. Set up your tags
 
-With the Pico plugged in, open **http://127.0.0.1:8787** in your browser
-and click **Connect via local bridge**. For each tag:
+For each tag:
 
 1. Build the list of actions you want (see
    [What a tag can do](#what-a-tag-can-do)).
@@ -69,23 +83,48 @@ after it is unplugged or moved to another computer.
 
 ### 5. Everyday use
 
-Whenever you plug in the Pico, run:
+Keyboard actions (shortcuts, lock, typing text or saved secrets) work as
+soon as the device is plugged in, with nothing running on the computer.
+Unlock, reminders and opening links need lazyTrigger running in the
+background, so open the app when you plug in the device.
+
+To skip that, tick **Start lazyTrigger when I log in** in the Setup
+section: at each login it checks once whether the device is plugged in and
+starts lazyTrigger in the background if it is. Nothing keeps running when
+it isn't.
+
+lazyTrigger stops by itself once the device is unplugged and its page is
+closed, or click **Quit lazyTrigger** in the page. Opening the app again
+brings the page back whenever you want to change your tags.
+
+**Updating:** download the new version the same way, open it, and click
+**Update device software** in the Setup section. Your tags, actions and
+settings are kept.
+
+### Setting up from the terminal instead
+
+If you'd rather use the source code: download this project (**Code →
+Download ZIP** on GitHub, or `git clone`), install **Python 3.8 or newer**
+(https://www.python.org/downloads/), open a terminal in the project folder
+and run:
 
 ```sh
-make start
+make
 ```
 
-This starts the small helper program (the "bridge") in the background with
-no window. It stops by itself about 10 seconds after the Pico is unplugged,
-so nothing runs while the device isn't connected. You only need the web
-page again when you want to add or change actions.
+This prepares the helper program, installs the software on a new Pico (hold
+**BOOTSEL** while plugging it in first) and starts the helper if the Pico is
+plugged in. It is safe to run again. Then open **http://127.0.0.1:8787**,
+which has the same Setup section as the app.
 
-Keyboard actions (shortcuts, lock, typing text or saved secrets) work even
-without the bridge. Unlock, reminders and opening links need it.
+- **Windows:** `make` works from Command Prompt without installing anything
+  else; in PowerShell type `.\make`.
+- **Pico W / Pico 2 W** boards need their own build:
+  `make BOARD=raspberry_pi_pico_w` (or `raspberry_pi_pico2_w`).
 
-To have this happen automatically, run `make autostart` once: at each
-login it checks once whether the Pico is plugged in and starts the bridge
-if it is.
+Whenever you plug in the Pico, run `make start`. It starts the helper (the
+"bridge") in the background with no window, and it stops by itself about 10
+seconds after the Pico is unplugged.
 
 | Command | What it does |
 |---|---|
@@ -98,6 +137,7 @@ if it is.
 | `make logs` | follow the bridge's log |
 | `make upload` | push firmware changes to the Pico (`FILES="code.py"`, `PORT=...` optional) |
 | `make bridge` | run the bridge in the terminal instead of the background |
+| `make app` | build the double-click app for this computer (see [Building the app](#building-the-app)) |
 | `make help` | every command |
 
 ## What a tag can do
@@ -319,7 +359,8 @@ that case; the page opened as a file expects 8787.
 
 ## Firmware setup by hand
 
-`make` does all of this for you; these are the same steps done by hand.
+The app's Setup section and `make` do all of this for you; these are the
+same steps done by hand.
 
 This project uses **CircuitPython**, not MicroPython or the C SDK, because
 it needs a composite USB HID + CDC device and a writable filesystem for
@@ -376,17 +417,52 @@ which only Chromium-based browsers implement.
 
 **Safari, Firefox, or any other browser:** these have no Web Serial support
 (Apple/WebKit has stated it won't add it to Safari), so use the small local
-bridge instead: `make start` (background) or `make bridge` (in the
-terminal). It auto-detects the Pico (by actually pinging each USB serial
+bridge instead: the lazyTrigger app, `make start` (background) or
+`make bridge` (in the terminal). It auto-detects the Pico (by actually pinging each USB serial
 port, not by guessing which one), reconnects by itself after the Pico
 resets, and serves the configurator: open `http://127.0.0.1:8787` in any
-browser and click **Connect via local bridge**. The bridge needs Python 3
-on the computer (`make` installs its one dependency, `pyserial`, into
-`.venv`); the device itself needs no drivers on any OS.
+browser. Served by the bridge, the page connects to the device by itself
+and adds the Setup section. Run from source, the bridge needs Python 3 on
+the computer (`make` installs its one dependency, `pyserial`, into
+`.venv`); the app bundles its own. The device itself needs no drivers on
+any OS.
 
 The bridge is also what shows reminders, opens links and reports whether
 the screen is locked, so run it (`make start`) whenever you use those
 actions, whether or not the configurator page is open.
+
+## Building the app
+
+The app is the bridge packaged with
+[PyInstaller](https://pyinstaller.org) together with its own Python, the
+configurator page and the firmware files.
+[app/lazytrigger_app.py](app/lazytrigger_app.py) is what runs when it is
+opened: it starts the bridge in the background if it isn't running and
+opens the page. The Setup section's buttons are carried out by the bridge
+(`/app/...` in [bridge/serial_bridge.py](bridge/serial_bridge.py)), using
+the same steps as `make` ([bridge/device_setup.py](bridge/device_setup.py)).
+
+To build it for the computer you're on:
+
+```sh
+make app
+```
+
+The result is in `dist/`. PyInstaller can only build for the system it
+runs on, so releases are built by GitHub Actions
+([.github/workflows/release.yml](.github/workflows/release.yml)) on macOS
+(Apple Silicon and Intel), Windows and Linux. To publish a release, push a
+version tag:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow builds all four files and attaches them to a new release on
+the repository's Releases page. To try a change without releasing, run the
+workflow from the **Actions** tab; the builds are then under that run's
+artifacts.
 
 ## Security notes
 
@@ -421,8 +497,11 @@ actions, whether or not the configurator page is open.
   firmware support.
 - The Web Serial configurator only works over a direct USB connection. The
   bridge listens only on `127.0.0.1`, so nothing on the network can reach
-  it, but it currently accepts commands from any page open in your browser
-  on this computer. Stop it (`make stop`) when you don't need it.
+  it, but it currently accepts device commands from any page open in your
+  browser on this computer. Stop it (**Quit lazyTrigger**, or `make stop`)
+  when you don't need it. The Setup section's actions (installing software,
+  changing the login item, quitting) are refused unless they come from
+  lazyTrigger's own page.
 
 ## Repo layout
 
@@ -439,10 +518,18 @@ configurator/
   index.html    # browser-based configurator (Web Serial or the local bridge)
 bridge/
   serial_bridge.py    # local HTTP/SSE<->serial bridge; also shows reminder popups
+  device_setup.py     # install/autostart steps shared by `make` and the app
   upload_firmware.py  # pushes firmware over the REPL (drive is read-only)
+app/
+  lazytrigger_app.py  # what runs when the app is opened
+  icon.png            # the app's icon
+  requirements.txt    # what building the app needs
 tools/
   manage.py           # setup/start/upload/autostart for every OS (what `make` runs)
+  build_app.py        # packages the app with PyInstaller (`make app`)
   check_protocol.py   # fails if protocol.py and protocol.js drift apart
+.github/workflows/
+  release.yml   # builds the app for every OS and publishes releases
 Makefile        # `make` entry point; forwards to tools/manage.py
 make.cmd        # the same `make` commands on Windows without GNU make
 PROTOCOL.md     # serial JSON protocol reference

@@ -14,11 +14,9 @@ before the project's own virtual environment exists.
 
 import argparse
 import os
-import platform
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -28,24 +26,14 @@ VENV = ROOT / ".venv"
 REQUIREMENTS = ROOT / "bridge" / "requirements.txt"
 VENV_MARKER = VENV / ".installed"
 
-SYSTEM = platform.system()  # "Darwin", "Windows" or "Linux"
-IS_WINDOWS = SYSTEM == "Windows"
-IS_MAC = SYSTEM == "Darwin"
+# The steps shared with the lazyTrigger app live next to the bridge.
+sys.path.insert(0, str(ROOT / "bridge"))
+import device_setup  # noqa: E402
+from device_setup import (BOOTLOADER_DRIVES, IS_WINDOWS, PICO_USB_VENDORS,  # noqa: E402
+                          SYSTEM, SetupError, drive_writable, find_drive, log_file)
 
 # Same variable the bridge reads, so `make status` looks in the right place.
 BRIDGE_URL = "http://127.0.0.1:{}".format(os.environ.get("LAZYTRIGGER_BRIDGE_PORT", "8787"))
-
-# boot.py goes last: it only runs at power-up, but if the board resets
-# mid-copy the rest of the firmware should already be in place.
-FIRMWARE_FILES = ["settings.toml", "protocol.py", "config.py", "secretbox.py", "mfrc522.py",
-                  "code.py", "boot.py"]
-
-# Drive names the RP2040 / RP2350 bootloader shows when BOOTSEL is held,
-# and the CircuitPython board each one gets by default. Pico W / Pico 2 W
-# need their own build: pass --board raspberry_pi_pico_w (or pico2_w).
-BOOTLOADER_DRIVES = {"RPI-RP2": "raspberry_pi_pico", "RP2350": "raspberry_pi_pico2"}
-
-LOG_MAX_BYTES = 1_000_000
 
 
 # --------------------------------------------------------------------------
@@ -74,16 +62,6 @@ def run(cmd, check=True, **kwargs):
     return subprocess.run([str(c) for c in cmd], check=check, **kwargs)
 
 
-def log_file():
-    if IS_MAC:
-        return Path.home() / "Library" / "Logs" / "lazytrigger-bridge.log"
-    if IS_WINDOWS:
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-        return base / "lazytrigger" / "bridge.log"
-    base = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
-    return base / "lazytrigger" / "bridge.log"
-
-
 def bridge_reachable():
     """Returns the bridge's /ports answer as text, or None if not running."""
     try:
@@ -91,66 +69,6 @@ def bridge_reachable():
             return resp.read().decode("utf-8", "replace")
     except Exception:
         return None
-
-
-# --------------------------------------------------------------------------
-# finding the Pico's USB drives
-
-def find_drive(label):
-    """Mount point of a USB drive by its volume label, or None."""
-    if IS_WINDOWS:
-        import ctypes
-        import string
-
-        kernel32 = ctypes.windll.kernel32
-        kernel32.SetErrorMode(1)  # no "insert a disk" popups for empty readers
-        mask = kernel32.GetLogicalDrives()
-        name = ctypes.create_unicode_buffer(261)
-        for i, letter in enumerate(string.ascii_uppercase):
-            if not mask & (1 << i):
-                continue
-            root = letter + ":\\"
-            if kernel32.GetVolumeInformationW(root, name, 261, None, None, None, None, 0):
-                if name.value.upper() == label.upper():
-                    return Path(root)
-        return None
-
-    if IS_MAC:
-        path = Path("/Volumes") / label
-        return path if path.is_dir() else None
-
-    try:
-        with open("/proc/mounts") as mounts:
-            for line in mounts:
-                mount_point = line.split()[1].replace("\\040", " ")
-                if Path(mount_point).name == label:
-                    return Path(mount_point)
-    except OSError:
-        pass
-    return None
-
-
-def drive_writable(path):
-    """Whether this computer may write to the drive. Once boot.py has run,
-    CIRCUITPY is read-only to the host, which is how an already-installed
-    Pico is recognised."""
-    probe = path / ".lazytrigger_write_test"
-    try:
-        probe.write_bytes(b"")
-        probe.unlink()
-        return True
-    except OSError:
-        return False
-
-
-def wait_for_drive(label, seconds):
-    deadline = time.time() + seconds
-    while time.time() < deadline:
-        drive = find_drive(label)
-        if drive is not None:
-            return drive
-        time.sleep(1)
-    return None
 
 
 # --------------------------------------------------------------------------
@@ -178,46 +96,14 @@ def cmd_setup(_args=None):
 
 def cmd_flash(args):
     """Install CircuitPython on a Pico that is in bootloader (BOOTSEL) mode."""
-    found = [(label, find_drive(label)) for label in BOOTLOADER_DRIVES]
-    found = [(label, drive) for label, drive in found if drive is not None]
-    if not found:
+    try:
+        flashed = device_setup.flash_circuitpython(getattr(args, "board", None), say=say)
+    except SetupError as e:
+        fail(str(e))
+    if not flashed:
         say("No Pico in bootloader mode found. To install CircuitPython: unplug the "
             "Pico, hold its BOOTSEL button while plugging it back in, then run this again.")
-        return False
-    label, drive = found[0]
-    board = getattr(args, "board", None) or BOOTLOADER_DRIVES[label]
-
-    step("Installing CircuitPython for " + board)
-    try:
-        import json
-        with urllib.request.urlopen(
-                "https://api.github.com/repos/adafruit/circuitpython/releases/latest",
-                timeout=15) as resp:
-            version = json.load(resp)["tag_name"]
-    except Exception as e:
-        fail("could not look up the latest CircuitPython version: {}".format(e))
-    url = ("https://downloads.circuitpython.org/bin/{b}/en_US/"
-           "adafruit-circuitpython-{b}-en_US-{v}.uf2").format(b=board, v=version)
-    say("Downloading CircuitPython {} ...".format(version))
-    uf2 = Path(tempfile.gettempdir()) / "circuitpython-{}-{}.uf2".format(board, version)
-    try:
-        urllib.request.urlretrieve(url, uf2)
-    except Exception as e:
-        fail("download failed ({}): {}".format(url, e))
-
-    say("Copying to {} ...".format(drive))
-    try:
-        shutil.copyfile(uf2, drive / uf2.name)
-    except OSError:
-        # The bootloader reboots the board as soon as the image is written,
-        # which can yank the drive away before the copy call returns.
-        if find_drive(label) is not None:
-            raise
-    say("Waiting for the CIRCUITPY drive ...")
-    if wait_for_drive("CIRCUITPY", 90) is None:
-        fail("CIRCUITPY did not appear. Unplug and replug the Pico, then run `make` again.")
-    say("CircuitPython is installed.")
-    return True
+    return flashed
 
 
 def cmd_install_firmware(_args=None):
@@ -230,16 +116,11 @@ def cmd_install_firmware(_args=None):
         say("The firmware is already installed (CIRCUITPY is read-only to this "
             "computer). Use `make upload` to update it.")
         return False
-    cmd_setup()
-    step("Installing the adafruit_hid library")
-    run([venv_python(), "-m", "pip", "install", "-q", "circup"])
-    run([venv_python(), "-m", "circup", "--path", drive, "install", "adafruit_hid"])
-    step("Copying the firmware to " + str(drive))
-    for name in FIRMWARE_FILES:
-        shutil.copyfile(ROOT / "firmware" / name, drive / name)
-        say("  " + name)
-    if hasattr(os, "sync"):
-        os.sync()
+    step("Installing lazyTrigger on " + str(drive))
+    try:
+        device_setup.install_firmware(drive, say=say)
+    except SetupError as e:
+        fail(str(e))
     say("\nFirmware installed. Unplug the Pico and plug it back in to start it.")
     return True
 
@@ -261,11 +142,6 @@ def cmd_bridge(_args=None):
         run([venv_python(), "-u", ROOT / "bridge" / "serial_bridge.py"], cwd=ROOT)
     except KeyboardInterrupt:
         pass
-
-
-# USB vendor ids a Pico running CircuitPython can report: Raspberry Pi's
-# own, and Adafruit's (used by many CircuitPython builds).
-PICO_USB_VENDORS = {0x2E8A, 0x239A}
 
 
 def pico_plugged_in():
@@ -316,15 +192,9 @@ def cmd_start(args=None):
             return
         fail("the Pico isn't plugged in. Plug it in, then run `make start` again.")
 
-    log = log_file()
-    log.parent.mkdir(parents=True, exist_ok=True)
-    if log.exists() and log.stat().st_size > LOG_MAX_BYTES:
-        log.replace(log.with_suffix(".old.log"))
     cmd = [str(venv_python()), "-u", str(ROOT / "bridge" / "serial_bridge.py"),
            "--exit-when-unplugged"]
-    with open(log, "a") as out:
-        out.write("--- started {}\n".format(time.ctime()))
-        out.flush()
+    with device_setup.open_log() as out:
         if IS_WINDOWS:
             # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW:
             # keeps running after this console closes, with no window of its own.
@@ -358,87 +228,25 @@ def cmd_stop(_args=None):
 # --------------------------------------------------------------------------
 # optional login item: one check at login, then it's gone
 
-LOGIN_ITEM_NAME = "lazytrigger-bridge"
-MAC_LOGIN_LABEL = "local.lazytrigger.bridge"
-
-
-def _login_item_path():
-    if IS_MAC:
-        return Path.home() / "Library" / "LaunchAgents" / (MAC_LOGIN_LABEL + ".plist")
-    if IS_WINDOWS:
-        appdata = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-        return (appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
-                / (LOGIN_ITEM_NAME + ".vbs"))
-    config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return config / "autostart" / (LOGIN_ITEM_NAME + ".desktop")
-
-
 def cmd_autostart(_args=None):
     """At each login, check once for the Pico and start the bridge if it's there."""
     cmd_setup()
-    cmd_autostart_remove(quiet=True)
-    item = _login_item_path()
-    item.parent.mkdir(parents=True, exist_ok=True)
-    python = str(venv_python(windowless=True))
-    manage = str(ROOT / "tools" / "manage.py")
-
-    if IS_MAC:
-        from xml.sax.saxutils import escape
-        # RunAtLoad without KeepAlive: launchd runs it once per login. The
-        # bridge it starts is in its own session, and AbandonProcessGroup
-        # stops launchd from killing it when this one-off check exits.
-        item.write_text(
-            '<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
-            '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
-            '<plist version="1.0">\n<dict>\n'
-            "    <key>Label</key><string>{label}</string>\n"
-            "    <key>ProgramArguments</key>\n    <array>\n"
-            "        <string>{python}</string>\n"
-            "        <string>{manage}</string>\n"
-            "        <string>start</string>\n"
-            "        <string>--at-login</string>\n"
-            "    </array>\n"
-            "    <key>WorkingDirectory</key><string>{root}</string>\n"
-            "    <key>RunAtLoad</key><true/>\n"
-            "    <key>AbandonProcessGroup</key><true/>\n"
-            "</dict>\n</plist>\n".format(
-                label=MAC_LOGIN_LABEL, python=escape(python), manage=escape(manage),
-                root=escape(str(ROOT))))
-        run(["launchctl", "bootstrap", "gui/{}".format(os.getuid()), item])
-    elif IS_WINDOWS:
-        # Style 0: no window. `"` is doubled inside VBScript strings.
-        item.write_text(
-            'Set shell = CreateObject("WScript.Shell")\r\n'
-            'shell.CurrentDirectory = "{root}"\r\n'
-            'shell.Run """{python}"" ""{manage}"" start --at-login", 0, False\r\n'.format(
-                root=str(ROOT), python=python, manage=manage))
-    else:
-        item.write_text(
-            "[Desktop Entry]\nType=Application\nName=lazyTrigger bridge (login check)\n"
-            'Exec="{python}" "{manage}" start --at-login\nPath={root}\n'
-            "NoDisplay=true\nX-GNOME-Autostart-enabled=true\n".format(
-                python=python, manage=manage, root=str(ROOT)))
+    item = device_setup.install_login_item(
+        [venv_python(windowless=True), ROOT / "tools" / "manage.py", "start", "--at-login"], ROOT)
     say("Login check installed: " + str(item))
     say("At each login it looks for the Pico once, starts the bridge if it's "
         "plugged in, and exits. Nothing keeps running when it isn't.")
 
 
-def cmd_autostart_remove(_args=None, quiet=False):
+def cmd_autostart_remove(_args=None):
     """Remove the login check."""
-    item = _login_item_path()
-    if IS_MAC:
-        run(["launchctl", "bootout", "gui/{}/{}".format(os.getuid(), MAC_LOGIN_LABEL)],
-            check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    if item.exists():
-        item.unlink()
-    if not quiet:
-        say("Login check removed.")
+    device_setup.remove_login_item()
+    say("Login check removed.")
 
 
 def cmd_status(_args=None):
     """Is the bridge running, and is the Pico connected?"""
-    if _login_item_path().exists():
+    if device_setup.login_item_installed():
         say("Autostart:         enabled (`make autostart-remove` to disable)")
     else:
         say("Autostart:         disabled (`make autostart` to enable)")
@@ -485,12 +293,22 @@ def cmd_check(_args=None):
     run([venv_python(), ROOT / "tools" / "check_protocol.py"])
 
 
+def cmd_app(_args=None):
+    """Build the double-click app for this computer into dist/."""
+    cmd_setup()
+    step("Installing the build tools")
+    run([venv_python(), "-m", "pip", "install", "-q", "-r", ROOT / "app" / "requirements.txt"])
+    step("Building the app")
+    run([venv_python(), ROOT / "tools" / "build_app.py"])
+
+
 def cmd_clean(_args=None):
-    """Delete .venv and Python caches."""
-    shutil.rmtree(VENV, ignore_errors=True)
+    """Delete .venv, app builds and Python caches."""
+    for folder in (VENV, ROOT / "build", ROOT / "dist"):
+        shutil.rmtree(folder, ignore_errors=True)
     for cache in ROOT.rglob("__pycache__"):
         shutil.rmtree(cache, ignore_errors=True)
-    say("Removed .venv and caches.")
+    say("Removed .venv, build/, dist/ and caches.")
 
 
 def cmd_install(args):
@@ -539,6 +357,7 @@ COMMANDS = {
     "logs": cmd_logs,
     "bridge": cmd_bridge,
     "check": cmd_check,
+    "app": cmd_app,
     "clean": cmd_clean,
 }
 
