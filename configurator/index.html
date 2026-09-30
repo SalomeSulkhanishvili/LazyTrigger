@@ -839,6 +839,10 @@ if (!("serial" in navigator)) {
 let setupPollTimer = null;
 let setupQuit = false;
 let autoConnectTried = null; // the port last auto-connected to, so a failure isn't retried every poll
+// Whether this page has seen an install or update run. lazyTrigger keeps
+// the last one's output until it stops, but only the page that ran it (or
+// watched it run) shows it; opening or reloading the page starts clean.
+let jobWatched = false;
 
 async function appPost(path, body) {
   const r = await fetch(path, {
@@ -891,9 +895,10 @@ function renderSetup(info) {
   $("setupInstallBtn").disabled = job.running;
   $("setupUpdateBtn").disabled = job.running;
 
-  // The last job's output stays visible after it ends, so its result
-  // (or its error) can be read.
-  if (job.name) {
+  // The output stays visible after the job ends, so its result (or its
+  // error) can be read, until the page is reloaded.
+  if (job.running) jobWatched = true;
+  if (job.name && jobWatched) {
     const el = $("setupLog");
     el.classList.remove("hidden");
     const text = job.lines.join("\n");
@@ -944,6 +949,8 @@ async function pollSetup() {
 }
 
 async function setupAction(path, body) {
+  // A job that fails at once may end before the next check sees it run.
+  if (path !== "/app/autostart") jobWatched = true;
   try {
     await appPost(path, body);
   } catch (e) {
