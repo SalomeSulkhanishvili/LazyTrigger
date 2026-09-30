@@ -1,4 +1,8 @@
-# lazyTrigger
+<p align="center">
+  <img src="app/icon.png" alt="lazyTrigger logo" width="140">
+</p>
+
+<h1 align="center">lazyTrigger</h1>
 
 lazyTrigger turns the things you do over and over on your computer into a
 single tap. You put a small tag (a key fob, card or sticker) on a little
