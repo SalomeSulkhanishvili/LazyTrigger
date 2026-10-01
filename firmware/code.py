@@ -67,10 +67,9 @@ SPI_MOSI = _setting_pin("RFID_MOSI", "GP19")
 SPI_MISO = _setting_pin("RFID_MISO", "GP16")
 RFID_CS = _setting_pin("RFID_CS", "GP17")
 RFID_RST = _setting_pin("RFID_RST", "GP20")
-# GP21 is wired to the reader's IRQ line but deliberately unused: CircuitPython
-# has no GPIO interrupt mechanism, so watching it would just mean polling a
-# different pin. The main loop polls the reader directly instead. Left
-# unconfigured here so the pin stays free.
+# The reader's IRQ pin is left unconnected: CircuitPython has no GPIO
+# interrupt mechanism, so watching it would just mean polling a different
+# pin. The main loop polls the reader directly instead.
 LED_PIN = board.LED
 
 PAIRING_TIMEOUT_S = _setting_int("PAIRING_TIMEOUT_S", 15)

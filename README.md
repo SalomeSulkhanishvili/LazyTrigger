@@ -27,7 +27,7 @@ like an ordinary keyboard, so it needs no drivers.
 
 You need the device itself: a Raspberry Pi Pico board with an RFID reader
 wired to it, plus a few tags. The parts cost a few dollars and connect with
-eight wires, no soldering required. See [Hardware](#hardware) for the parts
+seven wires, no soldering required. See [Hardware](#hardware) for the parts
 list and wiring.
 
 ### 2. Download the lazyTrigger app
@@ -278,14 +278,14 @@ itself, in addition to the whitelist stored on the device. See
 
 ### Wiring
 
-Eight jumper wires, no other components.
+Seven jumper wires, no other components.
 
 | MFRC522 pin | Pico GPIO | Pico physical pin |
 |---|---|---|
 | 3.3V | 3V3(OUT) | 36 |
 | RST | GP20 | 26 |
 | GND | GND | 23 |
-| IRQ | GP21 | 27 |
+| IRQ | not connected | |
 | MISO | GP16 | 21 |
 | MOSI | GP19 | 25 |
 | SCK | GP18 | 24 |
@@ -297,7 +297,6 @@ right-hand edge, counting up from the bottom right corner:
 ```
 pin 36  3V3(OUT)  ->  3.3V
 pin 28  GND           (a ground; either this or pin 23 works)
-pin 27  GP21      ->  IRQ
 pin 26  GP20      ->  RST
 pin 25  GP19      ->  MOSI
 pin 24  GP18      ->  SCK
@@ -321,9 +320,10 @@ sitting between GP17 and GP18. Counting pins without allowing for it puts
 every wire above it one position out, so count from the bottom-right corner
 (pin 21, GP16) and skip pin 23.
 
-IRQ is connected but the firmware does not use it. CircuitPython has no GPIO
-interrupt mechanism, so watching that line would just mean polling a
-different pin. The wire is harmless to leave in place.
+Leave the reader's IRQ pin unconnected. The firmware doesn't use it:
+CircuitPython has no GPIO interrupt mechanism, so watching that line would
+just mean polling a different pin, and the firmware polls the reader
+directly instead.
 
 ### Checking the wiring
 
