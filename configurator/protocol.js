@@ -66,6 +66,7 @@ const Event = Object.freeze({
   PASSWORD_SET: "password_set",
   PASSWORD_ERROR: "password_error",
   UNLOCK_BLOCKED: "unlock_blocked",
+  LOCK_STATE_NEEDED: "lock_state_needed",
   SECRET_SET: "secret_set",
   CONFIG: "config",
 });

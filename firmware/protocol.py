@@ -95,13 +95,14 @@ class Event:
     PASSWORD_SET = "password_set"
     PASSWORD_ERROR = "password_error"
     UNLOCK_BLOCKED = "unlock_blocked"
+    LOCK_STATE_NEEDED = "lock_state_needed"
     SECRET_SET = "secret_set"
     CONFIG = "config"
 
     ALL = (
         TAP, ACTION_FIRED, REMOVE, UNKNOWN_TAG, TAG_PAIRED, TAG_DATA_READ, TAG_DUMP,
         TAG_DATA_WRITTEN, TAG_COPIED, TAG_DATA_ERROR, PASSWORD_SET, PASSWORD_ERROR,
-        SECRET_SET, CONFIG, UNLOCK_BLOCKED,
+        SECRET_SET, CONFIG, UNLOCK_BLOCKED, LOCK_STATE_NEEDED,
     )
 
 

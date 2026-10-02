@@ -322,33 +322,40 @@ def frontmost_app():
 LOCK_POLL_SECONDS = 4
 
 
+def report_lock_state():
+    """Tell the device whether the screen is locked (and, when it isn't,
+    which app has focus)."""
+    try:
+        locked = screen_is_locked()
+        # Only worth knowing while unlocked: a secret is never typed into
+        # a locked screen, so this query can be skipped entirely then.
+        app = frontmost_app() if locked is False else None
+        with ser_lock:
+            active = ser
+        if active is not None:
+            payload = json.dumps(
+                {"cmd": "set_lock_state",
+                 "locked": locked if locked is not None else None,
+                 "app": app}
+            ) + "\n"
+            try:
+                active.write(payload.encode("utf-8"))
+            except (OSError, serial.SerialException):
+                pass
+    except Exception:
+        pass
+
+
 def lock_state_watcher():
     """Tell the device when the lock state changes, so it can refuse to type
-    the password into an already-unlocked session."""
+    the password into an already-unlocked session.
+
+    Sent every poll, not only on change. The device expires a report after
+    LOCK_STATE_MAX_AGE_S and then refuses to type the password, so a screen
+    left locked for a while would otherwise go stale and unlock would stop
+    working. The device can also ask for one (lock_state_needed)."""
     while True:
-        try:
-            locked = screen_is_locked()
-            # Only worth knowing while unlocked: a secret is never typed into
-            # a locked screen, so this query can be skipped entirely then.
-            app = frontmost_app() if locked is False else None
-            with ser_lock:
-                active = ser
-            if active is not None:
-                # Sent every poll, not only on change. The device expires a
-                # report after LOCK_STATE_MAX_AGE_S and then refuses to type
-                # the password, so a screen left locked for a while would
-                # otherwise go stale and unlock would stop working.
-                payload = json.dumps(
-                    {"cmd": "set_lock_state",
-                     "locked": locked if locked is not None else None,
-                     "app": app}
-                ) + "\n"
-                try:
-                    active.write(payload.encode("utf-8"))
-                except (OSError, serial.SerialException):
-                    pass
-        except Exception:
-            pass
+        report_lock_state()
         time.sleep(LOCK_POLL_SECONDS)
 
 
@@ -385,6 +392,10 @@ def handle_host_side_action(text):
         msg = json.loads(text)
     except ValueError:
         return
+    if msg.get("event") == Event.LOCK_STATE_NEEDED:
+        # An Unlock is waiting on this (see fresh_lock_state in code.py).
+        threading.Thread(target=report_lock_state, daemon=True).start()
+        return
     if msg.get("event") not in (Event.TAP, Event.ACTION_FIRED):
         return
     action = msg.get("action") or {}
@@ -400,8 +411,11 @@ def handle_host_side_action(text):
 RECONNECT_INTERVAL_S = 2
 # With --exit-when-unplugged: how long the Pico may be missing before the
 # bridge exits. A firmware upload resets the Pico, which drops it for a few
-# seconds, so this must outlast that.
+# seconds, so this must outlast that. Counted in checks the bridge actually
+# made, not clock time: while the computer sleeps none are made, so a USB
+# drop at sleep doesn't make it quit the moment the computer wakes.
 UNPLUGGED_EXIT_S = 10
+UNPLUGGED_EXIT_CHECKS = UNPLUGGED_EXIT_S // RECONNECT_INTERVAL_S
 
 EXIT_WHEN_UNPLUGGED = "--exit-when-unplugged" in sys.argv
 # With --exit-when-idle (how the app starts it when opened by hand), the
@@ -425,7 +439,7 @@ def connection_watcher():
     With --exit-when-unplugged (how the OS starts it when the Pico is plugged
     in), the bridge exits once the Pico has been gone for UNPLUGGED_EXIT_S,
     so nothing keeps running until it is plugged in again."""
-    missing_since = time.time()
+    missed_checks = 0
     while True:
         with ser_lock:
             connected = ser is not None
@@ -436,14 +450,13 @@ def connection_watcher():
                 connected = True
             except Exception:
                 pass
-        if connected:
-            missing_since = None
-        elif missing_since is None:
-            missing_since = time.time()
-        elif EXIT_WHEN_UNPLUGGED and time.time() - missing_since > UNPLUGGED_EXIT_S:
+        missed_checks = 0 if connected else missed_checks + 1
+        if missed_checks <= UNPLUGGED_EXIT_CHECKS:
+            pass
+        elif EXIT_WHEN_UNPLUGGED:
             print("Pico unplugged; exiting until it is plugged in again.", flush=True)
             os._exit(0)
-        elif (EXIT_WHEN_IDLE and time.time() - missing_since > UNPLUGGED_EXIT_S
+        elif (EXIT_WHEN_IDLE
               and time.time() - page_seen_at > PAGE_GONE_S and not job["running"]):
             print("No Pico and no open page; exiting.", flush=True)
             os._exit(0)

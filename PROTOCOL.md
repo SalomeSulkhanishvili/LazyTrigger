@@ -141,6 +141,7 @@ but can be any sequence.
 | `password_error` | `error` | A `set_password`/`set_secret` could not use that tag |
 | `secret_set` | `id`, `uid` | A `set_secret` completed |
 | `unlock_blocked` | `reason` | An `unlock` action was skipped because its guard didn't hold: the screen is already unlocked, the lock state is unknown, the focused app isn't the expected one, no password is set, or the tapped tag can't decrypt it. Nothing is typed, not even Enter, so a wrong tag never causes a failed login attempt |
+| `lock_state_needed` | (none) | Sent when an Unlock is tapped and the last `set_lock_state` is older than 10s (the computer just woke, say). The device waits up to 2s for a fresh `set_lock_state` before deciding; the bridge answers at once |
 | `config` | `config` | The config changed (pairing, edits, factory reset); sent so the configurator can refresh without polling |
 
 Both `tap` and `action_fired` carry the fired action's full definition. Anything

@@ -277,6 +277,36 @@ def screen_locked(state):
     return state.get("lock_state")
 
 
+# How long an Unlock tapped without a fresh lock-state report waits for one.
+LOCK_STATE_WAIT_S = 2.0
+
+
+def fresh_lock_state(state):
+    """screen_locked(), but when the last report is stale, ask the host and
+    wait briefly for an answer. Right after the computer wakes, the bridge
+    hasn't reported for the whole sleep, and refusing then made the first
+    tap after waking do nothing. Commands that arrive meanwhile are kept
+    for the main loop."""
+    locked = screen_locked(state)
+    link = (state or {}).get("link")
+    if locked is not None or link is None:
+        return locked
+    link.send({"event": Event.LOCK_STATE_NEEDED})
+    deadline = time.monotonic() + LOCK_STATE_WAIT_S
+    while time.monotonic() < deadline:
+        msg = link.poll()
+        if msg is None:
+            time.sleep(0.02)
+        elif msg.get("cmd") == Command.SET_LOCK_STATE:
+            state["lock_state"] = msg.get("locked")
+            state["front_app"] = msg.get("app")
+            state["lock_state_at"] = time.monotonic()
+            return screen_locked(state)
+        else:
+            state["deferred"].append(msg)
+    return None
+
+
 def chord_keycodes(chord, layout):
     """Keycodes for a shortcut. A letter names the character, as shortcuts
     do (Cmd+Z is undo), and which key types it depends on the layout: Z and
@@ -306,7 +336,7 @@ def run_action(keyboard, layout, cfg, action, reader=None, uid_bytes=None, state
         # screen). The device can't see the screen, so it relies on the host
         # reporting lock state; `require_locked` decides what to do when no
         # report is available.
-        locked = screen_locked(state)
+        locked = fresh_lock_state(state)
         require_locked = cfg.get("require_locked", True)
         if locked is False or (locked is None and require_locked):
             return {
@@ -1096,6 +1126,10 @@ def main():
         "reader": reader,
         "keyboard": keyboard,
         "layout": layout,
+        "link": link,
+        # Commands that arrived while an Unlock waited for a lock-state
+        # report (fresh_lock_state); handled by the main loop right after.
+        "deferred": [],
         "pairing_until": 0,
         "pairing_label": "",
         "pairing_on_tap": [],
@@ -1136,6 +1170,8 @@ def main():
                 if not reader.healthy():
                     reader.init_chip()
 
+            while state["deferred"]:
+                handle_command(state["deferred"].pop(0), cfg, link, state)
             msg = link.poll()
             if msg is not None:
                 handle_command(msg, cfg, link, state)
