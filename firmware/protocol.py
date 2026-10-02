@@ -59,6 +59,7 @@ class Command:
     CANCEL_PAIRING = "cancel_pairing"
     READ_TAG_DATA = "read_tag_data"
     READ_TAG_ALL = "read_tag_all"
+    WRITE_TAG_ALL = "write_tag_all"
     WRITE_TAG_DATA = "write_tag_data"
     TEST_ACTION = "test_action"
     SET_LOCK_STATE = "set_lock_state"
@@ -71,7 +72,7 @@ class Command:
         PING, GET_CONFIG, SET_PASSWORD, RESET_PASSWORD, SET_SECRET, REMOVE_SECRET,
         SET_LOCK_DEBOUNCE_MS, DETACH_UID, REMOVE_SET, RENAME_SET,
         SET_TAG_ACTIONS, NEW_SET,
-        START_PAIRING, CANCEL_PAIRING, READ_TAG_DATA, READ_TAG_ALL,
+        START_PAIRING, CANCEL_PAIRING, READ_TAG_DATA, READ_TAG_ALL, WRITE_TAG_ALL,
         WRITE_TAG_DATA, TEST_ACTION, SET_LOCK_STATE, SET_THEME, SET_DEBUG_LOG,
         SET_KEYBOARD_LAYOUT,
         FACTORY_RESET,
@@ -89,6 +90,7 @@ class Event:
     TAG_DATA_READ = "tag_data_read"
     TAG_DUMP = "tag_dump"
     TAG_DATA_WRITTEN = "tag_data_written"
+    TAG_COPIED = "tag_copied"
     TAG_DATA_ERROR = "tag_data_error"
     PASSWORD_SET = "password_set"
     PASSWORD_ERROR = "password_error"
@@ -98,7 +100,7 @@ class Event:
 
     ALL = (
         TAP, ACTION_FIRED, REMOVE, UNKNOWN_TAG, TAG_PAIRED, TAG_DATA_READ, TAG_DUMP,
-        TAG_DATA_WRITTEN, TAG_DATA_ERROR, PASSWORD_SET, PASSWORD_ERROR,
+        TAG_DATA_WRITTEN, TAG_COPIED, TAG_DATA_ERROR, PASSWORD_SET, PASSWORD_ERROR,
         SECRET_SET, CONFIG, UNLOCK_BLOCKED,
     )
 

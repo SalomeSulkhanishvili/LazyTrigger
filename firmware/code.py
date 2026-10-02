@@ -231,13 +231,23 @@ def read_tag_key(reader, uid_bytes):
     return read_tag_key_checked(reader, uid_bytes)[1]
 
 
-def decrypt_with_tag(enc_hex, iv_hex, reader, uid_bytes):
+def decrypt_with_tag(enc_hex, iv_hex, reader, uid_bytes, state=None):
     """Decrypt something using the key held on the tag currently on the
     reader. Returns "" if the tag can't supply the right key, which is the
-    intended outcome for a tag that isn't the one it was encrypted with."""
+    intended outcome for a tag that isn't the one it was encrypted with.
+
+    A secret late in a sequence (unlock, wait, open a page, type it) runs
+    seconds after the tap, often once the tag has been lifted. The key this
+    same tag gave moments ago (cached by unlock or an earlier secret) is
+    used then, never one from a different tag."""
     if not enc_hex:
         return ""
     key = read_tag_key(reader, uid_bytes)
+    if key is not None and state is not None:
+        cache_tag_key(state, uid_bytes, key)
+    if key is None and state is not None and uid_bytes is not None:
+        if state.get("cached_key_uid") == MFRC522.uid_to_str(uid_bytes):
+            key = cached_tag_key(state)
     if key is None:
         return ""
     return secretbox.decrypt(hex_to_bytes(enc_hex), key, hex_to_bytes(iv_hex))
@@ -339,6 +349,13 @@ def run_action(keyboard, layout, cfg, action, reader=None, uid_bytes=None, state
             delay = UNLOCK_WAKE_DELAY_S
         time.sleep(delay)
 
+        # A wake key that types (SPACE, which the Windows lock screen needs)
+        # lands in the password field when that is already open. One
+        # BACKSPACE removes it, and does nothing in an empty field.
+        if action.get("clear_after_wake"):
+            keyboard.press(Keycode.BACKSPACE)
+            keyboard.release_all()
+
         if password:
             layout.write(password)
         keyboard.press(Keycode.ENTER)
@@ -394,7 +411,7 @@ def run_action(keyboard, layout, cfg, action, reader=None, uid_bytes=None, state
         secret = config.find_secret(cfg, action.get("id", ""))
         if secret:
             value = decrypt_with_tag(
-                secret.get("enc", ""), secret.get("iv", ""), reader, uid_bytes
+                secret.get("enc", ""), secret.get("iv", ""), reader, uid_bytes, state
             )
             if value:
                 layout.write(value)
@@ -524,6 +541,64 @@ def dump_tag(reader, uid_bytes, key):
             "unreadable_sectors": unreadable}
 
 
+def copyable_block(block):
+    """Whether a copy may write this block: not the manufacturer block (its
+    UID is fixed at the factory), not the key block (the tag's encryption
+    key never leaves it), and not a sector trailer (the tag's own access
+    keys, which a bad write locks for good)."""
+    return (0 < block < TAG_BLOCKS and block != KEY_BLOCK
+            and (block + 1) % 4 != 0)
+
+
+def _write_sector(reader, uid_bytes, key, first, blocks, data):
+    """Write the given blocks of one sector and read each back. True once a
+    whole attempt went through with every block matching."""
+    for _ in range(TAG_KEY_ATTEMPTS):
+        if not reader.reselect(uid_bytes):
+            continue
+        if not reader.auth(first, key, uid_bytes):
+            reader.stop_crypto1()
+            continue
+        try:
+            for block in blocks:
+                if not reader.write_block(block, data[block]):
+                    break
+                if bytes(reader.read_block(block) or b"") != data[block]:
+                    break
+            else:
+                return True
+        finally:
+            reader.end_session()
+    return False
+
+
+def write_tag(reader, uid_bytes, op):
+    """Write another tag's data blocks (read with "read all") onto this one,
+    a sector at a time, checking each block by reading it back. Writing the
+    same data twice is harmless, so a sector that fails is simply retried."""
+    uid_str = MFRC522.uid_to_str(uid_bytes)
+    sectors = {}
+    for block in op["blocks"]:
+        sectors.setdefault(block // 4, []).append(block)
+    written = 0
+    failed = []
+    try:
+        for sector in sorted(sectors):
+            blocks = sorted(sectors[sector])
+            if _write_sector(reader, uid_bytes, op["key"], sector * 4, blocks, op["blocks"]):
+                written += len(blocks)
+            else:
+                failed += blocks
+    finally:
+        reader.halt()
+    if not written:
+        return {"ok": False, "event": Event.TAG_DATA_ERROR, "uid": uid_str,
+                "error": "couldn't write the tag. Hold it flat and still on the reader, "
+                         "and check it is a MIFARE Classic tag with the factory key"}
+    return {"ok": not failed, "event": Event.TAG_COPIED, "uid": uid_str,
+            "written": written, "failed": failed}
+
+
 def execute_data_op(reader, uid_bytes, op):
     """
     Run a pending read/write against the card currently in the field.
@@ -538,6 +613,8 @@ def execute_data_op(reader, uid_bytes, op):
     """
     if op["type"] == "dump":
         return dump_tag(reader, uid_bytes, op["key"])
+    if op["type"] == "copy":
+        return write_tag(reader, uid_bytes, op)
     uid_str = MFRC522.uid_to_str(uid_bytes)
     error = "couldn't select the tag. Hold it flat and still on the reader"
     try:
@@ -832,7 +909,7 @@ def handle_command(msg, cfg, link, state):
     elif cmd == Command.START_PAIRING:
         state["pairing_until"] = time.monotonic() + PAIRING_TIMEOUT_S
         state["pairing_label"] = msg.get("label", "")
-        state["pairing_on_tap"] = msg.get("on_tap") or [{"type": "unlock"}]
+        state["pairing_on_tap"] = msg.get("on_tap") or []
         state["pairing_on_remove"] = msg.get("on_remove") or []
         state["pairing_tap_mode"] = msg.get("tap_mode") or TapMode.SEQUENCE
         # When set, the tapped tag joins this existing set instead of
@@ -865,6 +942,39 @@ def handle_command(msg, cfg, link, state):
         state["pending_data_op_until"] = time.monotonic() + PENDING_OP_TIMEOUT_S
         link.send({"ok": True, "waiting_for_tag": True})
 
+    elif cmd == Command.WRITE_TAG_ALL:
+        try:
+            key = hex_to_bytes(msg.get("key_hex", "")) or DEFAULT_KEY
+        except ValueError:
+            key = DEFAULT_KEY
+        if len(key) != 6:
+            key = DEFAULT_KEY
+        blocks = {}
+        try:
+            for entry in msg.get("blocks") or []:
+                block = int(entry["block"])
+                data = hex_to_bytes(entry["hex"])
+                if not copyable_block(block) or len(data) != 16:
+                    raise ValueError
+                blocks[block] = data
+        except (KeyError, TypeError, ValueError):
+            link.send({"ok": False, "error": "blocks must be data blocks (not 0, {} or a "
+                                             "sector trailer) of 16 bytes".format(KEY_BLOCK)})
+            return
+        if not blocks:
+            link.send({"ok": False, "error": "nothing to write"})
+            return
+        state["pending_data_op"] = {
+            "type": "copy",
+            "key": key,
+            "blocks": blocks,
+            # The tag the data came from is likely still on the reader;
+            # it is skipped, and the copy waits for a different one.
+            "source_uid": str(msg.get("source_uid", "")).upper(),
+        }
+        state["pending_data_op_until"] = time.monotonic() + PENDING_OP_TIMEOUT_S
+        link.send({"ok": True, "waiting_for_tag": True})
+
     elif cmd in (Command.READ_TAG_DATA, Command.WRITE_TAG_DATA):
         try:
             block = int(msg.get("block", DEFAULT_DATA_BLOCK))
@@ -875,10 +985,16 @@ def handle_command(msg, cfg, link, state):
             link.send({"ok": False, "error": "bad block/key_hex"})
             return
 
+        if not 0 <= block < TAG_BLOCKS:
+            link.send({"ok": False, "error": "block must be 0 to {}".format(TAG_BLOCKS - 1)})
+            return
+
         # Sector trailer blocks (every 4th block, e.g. 3, 7, 11...) hold the
-        # keys/access bits, never let the API touch them.
-        if (block + 1) % 4 == 0:
-            link.send({"ok": False, "error": "block is a sector trailer, refusing"})
+        # keys and access bits. Reading one is harmless (the card reads Key A
+        # back as zeros) and "read all" shows them too; writing one could
+        # lock that part of the tag for good, so writes are refused.
+        if cmd == Command.WRITE_TAG_DATA and (block + 1) % 4 == 0:
+            link.send({"ok": False, "error": "block is a sector trailer, refusing to write it"})
             return
 
         # Block 5 holds the AES key for this tag's password and secrets.
@@ -982,7 +1098,7 @@ def main():
         "layout": layout,
         "pairing_until": 0,
         "pairing_label": "",
-        "pairing_on_tap": [{"type": "unlock"}],
+        "pairing_on_tap": [],
         "pairing_on_remove": [],
         "pairing_tap_mode": TapMode.SEQUENCE,
         "pairing_set_id": None,
@@ -1056,7 +1172,8 @@ def main():
                     blink(led, 3, 0.05, 0.05)
 
                 elif (state["pending_data_op"] is not None
-                      and now < state.get("pending_data_op_until", 0)):
+                      and now < state.get("pending_data_op_until", 0)
+                      and state["pending_data_op"].get("source_uid") != uid_str):
                     # Disarm first: if the op raises, the main loop's error
                     # handler must not find it still armed and rerun it on
                     # every poll (which flooded the log with the same error).

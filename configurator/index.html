@@ -262,6 +262,31 @@
   }
   .tag-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
   .tag-head .name { font-size: 14px; font-weight: 600; }
+  .add-set-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 14px;
+    background: transparent;
+    color: var(--accent);
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .add-set-btn:hover { border-color: var(--accent); background: var(--chip-accent-bg); }
+  .new-set-form {
+    margin-top: 6px;
+    padding: 12px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--panel2);
+  }
+  .new-set-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
 </style>
 </head>
 <body>
@@ -378,32 +403,42 @@
         (tap that tag to run it) or sits unassigned until you attach one.
       </div>
       <div id="setsList"></div>
-      <div id="setsEmpty" class="empty hidden">Nothing configured yet, create one below.</div>
-    </div>
+      <div id="setsEmpty" class="empty hidden">Nothing configured yet. Click <strong>+ Add new action set</strong> to create one.</div>
 
-    <div class="card">
-      <h2>New action set</h2>
-      <div class="row">
-        <label for="newTagLabel">Name</label>
-        <input type="text" id="newTagLabel" placeholder="e.g. Dev workspace badge" />
+      <!-- The form stays out of sight until asked for, so the list of sets
+           and the form for a new one can't be mistaken for each other. -->
+      <button id="addSetBtn" class="add-set-btn">+ Add new action set</button>
+
+      <div id="newSetForm" class="new-set-form hidden">
+        <div class="new-set-head">
+          <strong>New action set</strong>
+          <button id="cancelNewSetBtn" class="ghost icon-btn">Cancel</button>
+        </div>
+        <div class="row">
+          <label for="newTagLabel">Name <span style="color: var(--danger)">*</span></label>
+          <input type="text" id="newTagLabel" placeholder="Required, e.g. Dev workspace badge" required />
+        </div>
+
+        <div id="newTapMode"></div>
+        <div id="newOnTapEditor"></div>
+
+        <div class="row" style="margin-top: 14px;"><strong style="font-size: 13px;">On removal</strong>
+          <span style="color: var(--muted); font-size: 12px;">(runs in full when the tag is taken away; needs a tag)</span>
+        </div>
+        <div id="newOnRemoveEditor"></div>
+
+        <div class="row" style="margin-top: 14px;">
+          <label style="min-width: 90px;"><input type="checkbox" id="writeLabelCheck" /> also write name onto the tag</label>
+        </div>
+        <div class="row">
+          <button id="pairBtn">Tap a tag to attach it now</button>
+          <button id="addLibBtn" class="secondary">Save without a tag</button>
+        </div>
       </div>
 
-      <div id="newTapMode"></div>
-      <div id="newOnTapEditor"></div>
-
-      <div class="row" style="margin-top: 14px;"><strong style="font-size: 13px;">On removal</strong>
-        <span style="color: var(--muted); font-size: 12px;">(runs in full when the tag is taken away; needs a tag)</span>
-      </div>
-      <div id="newOnRemoveEditor"></div>
-
-      <div class="row" style="margin-top: 14px;">
-        <label style="min-width: 90px;"><input type="checkbox" id="writeLabelCheck" /> also write name onto the tag</label>
-      </div>
-      <div class="row">
-        <button id="pairBtn">Tap a tag to attach it now</button>
-        <button id="addLibBtn" class="secondary">Save without a tag</button>
-      </div>
-      <div class="row">
+      <!-- Outside the form, so "Attached tag ..." is still seen after the
+           form closes. -->
+      <div class="row" style="margin-top: 8px;">
         <span id="pairStatus" class="status"></span>
         <span id="libStatus" class="status" style="font-size: 12px;"></span>
       </div>
@@ -452,9 +487,9 @@
           <tr><td>8+</td><td>The pattern repeats: three free blocks, then a trailer.</td></tr>
         </table>
 
-        <p>Sector trailers are refused by the device. Writing one would change
-        the card's own access keys and could make that part of the tag
-        unusable for good.</p>
+        <p>Sector trailers can be read but not written: the device refuses.
+        Writing one would change the card's own access keys and could make
+        that part of the tag unusable for good.</p>
 
         <p><strong>What is "Key A"?</strong><br />
         Separate from your encryption key. It is MIFARE's own access control:
@@ -465,7 +500,7 @@
       </div>
       <div class="row">
         <label for="blockInput">Block</label>
-        <input type="number" id="blockInput" value="4" min="0" style="max-width: 100px" />
+        <input type="number" id="blockInput" value="4" min="0" max="63" style="max-width: 100px" />
         <label for="keyInput">Key (hex)</label>
         <input type="text" id="keyInput" placeholder="FFFFFFFFFFFF" style="max-width: 160px" />
       </div>
@@ -677,7 +712,8 @@ function handleLine(line) {
 
   if (msg.waiting_for_tag && pendingSecretStatus) {
     pendingSecretStatus.innerHTML =
-      '<span style="color: var(--accent)">Tap the tag once to unlock the key, then this saves automatically.</span>';
+      '<span style="color: var(--accent)">Now tap the tag that will run this action (lift it and ' +
+      'put it back if it is already on the reader). It saves automatically.</span>';
   }
 
   if (msg.event === Event.SECRET_SET) {
@@ -697,6 +733,13 @@ function handleLine(line) {
   if (msg.event === Event.PASSWORD_SET) {
     closePwGate();
     send({ cmd: Command.GET_CONFIG });
+  } else if (msg.event === Event.PASSWORD_ERROR && pendingSecretStatus) {
+    // The same tap-and-encrypt step saves secrets, so its errors are the
+    // secret's too. Without this the row kept saying "Saving..." forever.
+    pendingSecretStatus.innerHTML = '<span style="color: var(--danger)">Not saved: ' +
+      msg.error + '. Type the value again and save to retry.</span>';
+    pendingSecretStatus = null;
+    pendingSecretAction = null;
   } else if (msg.event === Event.PASSWORD_ERROR) {
     const gate = $("pwGate");
     if (!gate.classList.contains("hidden")) {
@@ -712,11 +755,15 @@ function handleLine(line) {
     log("\u{1F3F7} Unregistered tag " + msg.uid);
     setStatus($("pairStatus"),
       "Saw tag " + msg.uid + ", but it isn't attached to anything yet. " +
-      "Build its actions below, then click Pair and tap it again.", "busy");
+      "Click + Add new action set, build its actions, then attach it.", "busy");
   }
 
   if (msg.event === Event.TAG_PAIRED) {
     setStatus($("pairStatus"), "Attached tag " + msg.uid, "ok");
+    if (newSetPairing) {
+      newSetPairing = false;
+      closeNewSetForm();
+    }
   } else if (msg.event === Event.TAG_DATA_READ) {
     setStatus($("blockStatus"), 'Read: "' + msg.text + '" (' + msg.data_hex + ")", "ok");
   } else if (msg.event === Event.TAG_DUMP) {
@@ -727,10 +774,23 @@ function handleLine(line) {
       : "Read all 64 blocks of tag " + msg.uid, msg.unreadable_sectors ? "err" : "ok");
   } else if (msg.event === Event.TAG_DATA_WRITTEN) {
     setStatus($("blockStatus"), "Written to block " + msg.block, "ok");
+  } else if (msg.event === Event.TAG_COPIED) {
+    setStatus($("blockStatus"), msg.failed.length
+      ? "Copied " + msg.written + " blocks to tag " + msg.uid + ", but couldn't write block(s) "
+        + msg.failed.join(", ") + ". Hold the tag still and copy again."
+      : "Copied all " + msg.written + " data blocks to tag " + msg.uid + " and checked them.",
+      msg.failed.length ? "err" : "ok");
   } else if (msg.needs_confirmation === "key_overwrite") {
     setStatus($("blockStatus"), msg.error, "err");
   } else if (msg.event === Event.TAG_DATA_ERROR) {
     setStatus($("blockStatus"), "Error: " + msg.error, "err");
+  } else if (msg.ok === false && msg.error && $("blockStatus").classList.contains("busy")) {
+    // A tag read/write/copy the device refused outright (an older firmware
+    // without the command, or a bad request). Otherwise the status stays on
+    // "Waiting..." and the button seems to do nothing.
+    setStatus($("blockStatus"), "Error: " + (msg.error === "unknown command"
+      ? "this device's software doesn't have this yet. Click Update device software in Setup."
+      : msg.error), "err");
   }
 }
 
@@ -1140,8 +1200,10 @@ function createActionEditor(container, initialActions, runsAsSequence = false, o
       const describe = () => {
         note.innerHTML = "Wakes the screen with <strong>" +
           (action.wake_keys || ["SHIFT"]).join("+") + "</strong>, waits <strong>" +
-          (action.delay != null ? action.delay : 0.8) +
-          "s</strong>, then types the password and presses Enter.";
+          (action.delay != null ? action.delay : 0.8) + "s</strong>, " +
+          (action.clear_after_wake ? "presses <strong>Backspace</strong> (in case the " +
+            "wake key landed in the password field), " : "") +
+          "then types the password and presses Enter.";
       };
 
       const osSelect = document.createElement("select");
@@ -1333,15 +1395,18 @@ function createActionEditor(container, initialActions, runsAsSequence = false, o
             status.innerHTML = '<span style="color: var(--danger)">Give it a name and a value first.</span>';
             return;
           }
+          // Set before sending: the device's answer can arrive before
+          // send() returns, and would find nothing to update.
           pendingSecretAction = action;
+          pendingSecretStatus = status;
+          status.innerHTML = '<span style="color: var(--accent)">Saving...</span>';
+          const value = valueInput.value;
+          valueInput.value = "";
           await send({
             cmd: Command.SET_SECRET,
             label: nameInput.value.trim(),
-            value: valueInput.value,
+            value,
           });
-          valueInput.value = "";
-          pendingSecretStatus = status;
-          status.innerHTML = '<span style="color: var(--accent)">Saving...</span>';
         });
 
         fields.append(nameInput, makeRevealToggle(valueInput), valueInput, saveBtn);
@@ -2023,6 +2088,7 @@ $("addLibBtn").addEventListener("click", () => {
   const onRemove = newOnRemoveEditor.getActions();
   if (!label) {
     setStatus($("libStatus"), "Give the set a name first.", "err");
+    $("newTagLabel").focus();
     return;
   }
   if (!onTap.length && !onRemove.length) {
@@ -2034,9 +2100,7 @@ $("addLibBtn").addEventListener("click", () => {
 
   send({ cmd: Command.NEW_SET, label, on_tap: onTap,
          on_remove: onRemove, tap_mode: newTapMode });
-  $("newTagLabel").value = "";
-  newOnTapEditor.setActions([]);
-  newOnRemoveEditor.setActions([]);
+  closeNewSetForm();
   setStatus($("libStatus"), "Saved without a tag \u2014 attach one whenever you like.", "ok");
 });
 
@@ -2069,7 +2133,7 @@ $("saveDebounceBtn").addEventListener("click", () =>
 );
 
 let newTapMode = TapMode.SEQUENCE;
-let newOnTapEditor = createActionEditor($("newOnTapEditor"), [{ type: ActionType.UNLOCK }], true);
+let newOnTapEditor = createActionEditor($("newOnTapEditor"), [], true);
 function renderNewTapMode() {
   $("newTapMode").innerHTML = "";
   $("newTapMode").appendChild(makeTapModeSelect(newTapMode, (mode) => {
@@ -2082,11 +2146,62 @@ function renderNewTapMode() {
 renderNewTapMode();
 const newOnRemoveEditor = createActionEditor($("newOnRemoveEditor"), [], true);
 
+// Empties the New action set form once its set has been saved (a tag
+// attached, or saved without one), so the next set starts from scratch.
+function resetNewSetForm() {
+  $("newTagLabel").value = "";
+  $("writeLabelCheck").checked = false;
+  newTapMode = TapMode.SEQUENCE;
+  newOnTapEditor = createActionEditor($("newOnTapEditor"), [], true);
+  renderNewTapMode();
+  newOnRemoveEditor.setActions([]);
+}
+
+function openNewSetForm() {
+  setStatus($("pairStatus"), "", "");
+  setStatus($("libStatus"), "", "");
+  $("addSetBtn").classList.add("hidden");
+  $("newSetForm").classList.remove("hidden");
+  $("newTagLabel").focus();
+}
+
+// Back to the button, with the form emptied for next time.
+function closeNewSetForm() {
+  resetNewSetForm();
+  $("newSetForm").classList.add("hidden");
+  $("addSetBtn").classList.remove("hidden");
+}
+
+$("addSetBtn").addEventListener("click", openNewSetForm);
+$("cancelNewSetBtn").addEventListener("click", () => {
+  if (newSetPairing) {
+    newSetPairing = false;
+    clearTimeout(pairTimer);
+    send({ cmd: Command.CANCEL_PAIRING });
+    setStatus($("pairStatus"), "", "");
+  }
+  closeNewSetForm();
+});
+
+// Whether the pairing in progress was started by this form. "Attach
+// another tag" on an existing set pairs too, and must not empty it.
+let newSetPairing = false;
+
 let pairTimer = null;
 $("pairBtn").addEventListener("click", async () => {
   clearTimeout(pairTimer);
   const label = $("newTagLabel").value.trim();
   const writeLabel = $("writeLabelCheck").checked;
+  if (!label) {
+    setStatus($("pairStatus"), "Give the set a name first.", "err");
+    $("newTagLabel").focus();
+    return;
+  }
+  if (!newOnTapEditor.getActions().length && !newOnRemoveEditor.getActions().length) {
+    setStatus($("pairStatus"), "Add at least one action first.", "err");
+    return;
+  }
+  newSetPairing = true;
   await send({
     cmd: Command.START_PAIRING,
     label,
@@ -2098,6 +2213,7 @@ $("pairBtn").addEventListener("click", async () => {
   setStatus($("pairStatus"), "Waiting for tag (15s)...", "busy");
   pairTimer = setTimeout(() => {
     if ($("pairStatus").textContent.startsWith("Waiting")) {
+      newSetPairing = false;
       setStatus($("pairStatus"), "Timed out, try again", "err");
     }
   }, 15000);
@@ -2158,14 +2274,54 @@ function renderDump(msg) {
 
   // The table stays until cleared, so a later single-block read doesn't
   // look like part of it.
+  const buttons = document.createElement("div");
+  buttons.className = "row";
+  buttons.style.marginTop = "8px";
+  const copyable = copyableBlocks(msg);
+  if (copyable.length) {
+    const copyBtn = document.createElement("button");
+    copyBtn.textContent = "Copy to another tag";
+    copyBtn.title = "Write these " + copyable.length + " data blocks to another tag";
+    copyBtn.addEventListener("click", () => copyToAnotherTag(msg.uid, copyable));
+    buttons.appendChild(copyBtn);
+  }
   const clearBtn = document.createElement("button");
   clearBtn.className = "secondary";
   clearBtn.textContent = "Clear";
-  clearBtn.style.marginTop = "8px";
   clearBtn.addEventListener("click", clearDump);
-  box.appendChild(clearBtn);
+  buttons.appendChild(clearBtn);
+  box.appendChild(buttons);
+  if (copyable.length) {
+    const note = document.createElement("div");
+    note.style.cssText = "color: var(--muted); font-size: 12px; line-height: 1.5;";
+    note.textContent = "Copying writes the " + copyable.length + " data blocks above to " +
+      "another MIFARE Classic tag. It leaves out block 0 (each tag's ID is fixed at the " +
+      "factory), block 5 (the encryption key, never read), the sector trailers (the tag's " +
+      "own access keys) and any sector that couldn't be read.";
+    box.appendChild(note);
+  }
 
   box.classList.remove("hidden");
+}
+
+// Blocks a copy may write: data that was read, not the manufacturer block,
+// the key block or a sector trailer. The device refuses the rest anyway.
+function copyableBlocks(dump) {
+  return dump.blocks
+    .filter((b) => b.hex && !b.hidden && (b.kind === "data" || b.kind === "label"))
+    .map((b) => ({ block: b.block, hex: b.hex }));
+}
+
+function copyToAnotherTag(sourceUid, blocks) {
+  setStatus($("blockStatus"),
+    "Take tag " + sourceUid + " away and hold the new tag on the reader. Keep it still " +
+    "while the " + blocks.length + " blocks are written.", "busy");
+  send({
+    cmd: Command.WRITE_TAG_ALL,
+    blocks,
+    source_uid: sourceUid,
+    key_hex: $("keyInput").value.trim() || undefined,
+  });
 }
 
 function clearDump() {

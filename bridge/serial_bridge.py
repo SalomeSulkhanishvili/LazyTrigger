@@ -207,9 +207,14 @@ def show_notification(title, body):
             )
             subprocess.run(["osascript", "-e", script], check=False)
         elif system == "Windows":
+            # Windows won't bring a window from a background program to the
+            # front, so the box would open behind whatever has focus. An
+            # always-on-top owner window (never shown) puts it on top.
             ps = (
                 "Add-Type -AssemblyName System.Windows.Forms; "
-                "[System.Windows.Forms.MessageBox]::Show({}, {}) | Out-Null"
+                "$owner = New-Object System.Windows.Forms.Form -Property @{{TopMost = $true}}; "
+                "[System.Windows.Forms.MessageBox]::Show($owner, {}, {}, 'OK', 'Information') "
+                "| Out-Null"
             ).format(_powershell_string(body), _powershell_string(title))
             subprocess.Popen(["powershell", "-NoProfile", "-Command", ps], **NO_WINDOW)
         elif shutil.which("notify-send"):

@@ -30,8 +30,13 @@ action and wraps around) and an `on_remove` list (run in full whenever the
 tag is taken away). Each action is one of:
 
 ```jsonc
-{"type": "unlock"}
-// Wakes the screen (Escape), types the device's stored password, presses Enter.
+{"type": "unlock", "os": "windows", "wake_keys": ["SPACE"], "clear_after_wake": true, "delay": 1.0}
+// Wakes the screen with `wake_keys` (default SHIFT), waits `delay` seconds,
+// presses BACKSPACE if `clear_after_wake` (for a wake key that types, in case
+// it landed in an already open password field), types the device's stored
+// password and presses Enter. The configurator fills these in per OS:
+// SHIFT on macOS and Linux, SPACE with clear_after_wake on Windows and
+// "universal".
 
 {"type": "keys", "keys": ["CONTROL", "ALT", "L"]}
 // Presses the given keys together as a chord, then releases them.
@@ -105,10 +110,11 @@ but can be any sequence.
 | `rename_set` | `id`, `label` | Renames a set |
 | `new_set` | `label`, `on_tap`, `on_remove`, `tap_mode` (all optional) | Creates a set with no tag attached yet; replies with its `id`. Attach a tag later with `start_pairing` + `set_id` |
 | `set_tag_actions` | `id`: set id, `on_tap`: [action], `on_remove`: [action], `tap_mode` | Replaces a set's action lists and resets its cycle position |
-| `start_pairing` | `label` (optional), `on_tap`/`on_remove` (optional, default `on_tap=[{"type":"unlock"}]`), `tap_mode` (optional), `set_id` (optional), `write_label` (optional bool) | Arms pairing mode for 15s; the next tag tapped is whitelisted with the given actions, or attached to `set_id` if given |
+| `start_pairing` | `label` (optional), `on_tap`/`on_remove` (optional, default empty), `tap_mode` (optional), `set_id` (optional), `write_label` (optional bool) | Arms pairing mode for 15s; the next tag tapped is whitelisted with the given actions, or attached to `set_id` if given |
 | `cancel_pairing` |. | Cancels pairing mode early |
 | `read_tag_data` | `block` (default 4), `key_hex` (default `FFFFFFFFFFFF`) | Arms a one-shot read; the next tag tapped is read and reported |
 | `read_tag_all` | `key_hex` (default `FFFFFFFFFFFF`) | Arms a one-shot read of every block (MIFARE Classic 1K: 64 blocks, one login per sector); the next tag tapped is read and reported as `tag_dump`. The key block (5) is never read |
+| `write_tag_all` | `blocks`: `[{block, hex}]`, `source_uid`, `key_hex` (default `FFFFFFFFFFFF`) | Arms a one-shot copy: the next tag tapped other than `source_uid` gets these blocks written, a sector at a time, each read back to check it. Only data blocks are accepted: never block 0 (the UID), the key block (5) or a sector trailer. Reported as `tag_copied` |
 | `write_tag_data` | `block`, `text` or `data_hex`, `key_hex`, `confirm_key_overwrite` | Arms a one-shot write of up to 16 bytes to the next tag tapped. Writing to block 5 is refused (`needs_confirmation: "key_overwrite"`) unless `confirm_key_overwrite` is set, since that block holds the tag's encryption key |
 | `test_action` | `action` | Fires one action immediately (no tag needed) so the configurator can preview it. `notify` actions produce no keystrokes; everything else (keys/text/unlock/wait) really runs, into whatever window has focus |
 | `set_lock_state` | `locked`: bool, `app` (optional) | The host reports whether the screen is locked; the device cannot see this itself. Reports older than 10s are treated as unknown |
@@ -129,6 +135,7 @@ but can be any sequence.
 | `tag_data_read` | `uid`, `block`, `data_hex`, `text` | Result of a `read_tag_data` request |
 | `tag_dump` | `uid`, `blocks`, `unreadable_sectors` | Result of `read_tag_all`. Each of `blocks` is `{block, kind}` (`manufacturer`, `trailer`, `key`, `label` or `data`) plus `hex` and `text` (non-printable bytes as `.`), or `error: "unreadable"` for a sector that couldn't be read, or `hidden: true` for the key block |
 | `tag_data_written` | `uid`, `block` | Result of a successful `write_tag_data` request |
+| `tag_copied` | `uid`, `written`, `failed` | Result of `write_tag_all`: how many blocks were written and checked, and the blocks that couldn't be (`ok` is false if any failed) |
 | `tag_data_error` | `uid`, `error` | A read/write op failed (bad auth, wrong block, etc.) |
 | `password_set` | `uid` | A `set_password` completed; the key was written to that tag |
 | `password_error` | `error` | A `set_password`/`set_secret` could not use that tag |
@@ -146,8 +153,9 @@ see the `notify` action above.
 These use MIFARE Classic sector authentication with Key A (default factory
 key `FFFFFFFFFFFF` unless the tag's keys were changed). Block 4 (sector 1's
 first data block) is used by default for storing an optional free-text label
-directly on the tag; sector trailer blocks (3, 7, 11, ...) are rejected
-since they hold the sector's keys and access bits, not data.
+directly on the tag. Blocks are 0 to 63. Sector trailer blocks (3, 7, 11,
+..., 63) can be read but writes to them are rejected, since they hold the
+sector's keys and access bits, not data.
 
 ## Password and secret storage
 

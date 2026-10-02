@@ -191,13 +191,21 @@ In the configurator you can:
   - **Reminder**: a notification like "It's been 1479 days since ..." or a
     countdown to a date (needs the bridge)
   - **Wait**: a pause, for sequences only
+
+  One tag can combine them. For example **Unlock → Wait 2s → Open a link →
+  Wait 3s → Type a saved secret** unlocks the computer, opens a login page
+  and types the password for it. Save the secret by tapping that same tag.
+  The secret can be typed after the tag is lifted, because the key it read
+  moments before is reused for that one tap's actions.
 - Reorder, test, or remove individual actions
 - Tap-to-add a tag to the whitelist with the actions you just built
 - Edit an existing tag's actions, or rename/remove it, at any time
 - Adjust how long a tag must be absent before its `on_remove` action runs
 - Read/write raw data on a tag (advanced): one 16-byte block at a time, or
   **read all** 64 blocks in one tap (block 5, the encryption key, is never
-  read there)
+  read there). After reading all, **Copy to another tag** writes the data
+  blocks to a second tag and checks them. Each tag's ID, the encryption key
+  and the tags' own access keys are never copied
 - Clear the device log, or switch on **Debug** to also see routine
   `{"ok": true}` replies (off by default, when the device doesn't send
   them at all; the choice is saved on the device)
@@ -209,6 +217,12 @@ In the configurator you can:
   password is encrypted with a key written onto that tag. Another tag with
   an Unlock action does nothing (it doesn't even press Enter, so it never
   causes a failed login attempt), and the configurator shows why.
+- It first wakes the screen with a key chosen per OS: **Shift** on macOS
+  and Linux, and on Windows (and "Universal") **Space** followed by
+  **Backspace**, because Shift doesn't lift the Windows lock screen and the
+  Backspace removes the space if the password box was already open. Enter
+  is never used to wake, since on an open box it would submit an empty
+  password.
 - It types only when the bridge reports the screen is locked, so the
   password can't land in whatever window has focus. Without the bridge
   running, Unlock does nothing.

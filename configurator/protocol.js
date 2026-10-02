@@ -42,6 +42,7 @@ const Command = Object.freeze({
   CANCEL_PAIRING: "cancel_pairing",
   READ_TAG_DATA: "read_tag_data",
   READ_TAG_ALL: "read_tag_all",
+  WRITE_TAG_ALL: "write_tag_all",
   WRITE_TAG_DATA: "write_tag_data",
   TEST_ACTION: "test_action",
   SET_LOCK_STATE: "set_lock_state",
@@ -60,6 +61,7 @@ const Event = Object.freeze({
   TAG_DATA_READ: "tag_data_read",
   TAG_DUMP: "tag_dump",
   TAG_DATA_WRITTEN: "tag_data_written",
+  TAG_COPIED: "tag_copied",
   TAG_DATA_ERROR: "tag_data_error",
   PASSWORD_SET: "password_set",
   PASSWORD_ERROR: "password_error",
@@ -101,15 +103,19 @@ const LOCK_COMBOS = {
 //
 // ESCAPE is deliberately absent for macOS: at the login window it cancels
 // the password prompt and can return to user selection, so an unlock that
-// used it appeared to do nothing. SHIFT wakes the display on all three
-// without typing or cancelling anything, so it is also the universal default.
+// used it appeared to do nothing. SHIFT wakes a Mac without typing or
+// cancelling anything. It does not lift the Windows lock screen, which needs
+// a key that types; ENTER would submit an empty password if the field is
+// already open (a failed login attempt), so Windows uses SPACE, and
+// `clear_after_wake` presses BACKSPACE before typing in case the space
+// landed in an open field. Universal has to work on Windows too.
 // The delay is how long to wait for the password field to actually appear
 // waking from real sleep is slower than dismissing a screensaver.
 const UNLOCK_PRESETS = {
-  universal: { wake_keys: ["SHIFT"], delay: 0.8 },
-  mac:       { wake_keys: ["SHIFT"], delay: 0.8 },
-  windows:   { wake_keys: ["SHIFT"], delay: 0.6 },
-  linux:     { wake_keys: ["SHIFT"], delay: 0.6 },
+  universal: { wake_keys: ["SPACE"], clear_after_wake: true, delay: 1.0 },
+  mac:       { wake_keys: ["SHIFT"], clear_after_wake: false, delay: 0.8 },
+  windows:   { wake_keys: ["SPACE"], clear_after_wake: true, delay: 1.0 },
+  linux:     { wake_keys: ["SHIFT"], clear_after_wake: false, delay: 0.6 },
 };
 
 // Display metadata for the action editor: label shown in the type dropdown,
