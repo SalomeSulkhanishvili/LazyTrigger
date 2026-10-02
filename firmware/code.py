@@ -565,8 +565,10 @@ def dump_tag(reader, uid_bytes, key):
     finally:
         reader.halt()
     if unreadable == TAG_BLOCKS // 4:
-        return {"ok": False, "event": Event.TAG_DATA_ERROR, "uid": uid_str,
-                "error": "couldn't read the tag. Hold it flat and still on the reader"}
+        error = "couldn't read the tag. Hold it flat and still on the reader"
+        if tag_refuses_factory_key(reader, uid_bytes):
+            error = REFUSES_FACTORY_KEY
+        return {"ok": False, "event": Event.TAG_DATA_ERROR, "uid": uid_str, "error": error}
     return {"ok": True, "event": Event.TAG_DUMP, "uid": uid_str, "blocks": blocks,
             "unreadable_sectors": unreadable}
 
@@ -722,6 +724,31 @@ class SerialLink:
         self._stream.write((json.dumps(obj) + "\n").encode("utf-8"))
 
 
+REFUSES_FACTORY_KEY = ("this tag turns down the factory key, so lazyTrigger can't use it. "
+                       "It was probably programmed for something else (an access, "
+                       "transport or hotel card) or isn't a MIFARE Classic tag. "
+                       "Use a blank MIFARE Classic 1K tag")
+
+
+def tag_refuses_factory_key(reader, uid_bytes):
+    """True when the tag answers every time but turns the factory key down
+    every time: it has keys of its own, or isn't MIFARE Classic. A tag at
+    the edge of the field fails more erratically, and only that one is
+    helped by being held still."""
+    selected = refused = 0
+    for _ in range(TAG_KEY_ATTEMPTS):
+        if not reader.reselect(uid_bytes):
+            continue
+        selected += 1
+        if reader.auth(KEY_BLOCK, DEFAULT_KEY, uid_bytes):
+            reader.end_session()
+        else:
+            refused += 1
+            reader.stop_crypto1()
+    reader.halt()
+    return selected >= 2 and refused == selected
+
+
 def get_or_create_tag_key(reader, uid_bytes):
     """Return the tag's existing key, or write a fresh one if it has none.
 
@@ -760,6 +787,8 @@ def store_password_with_tag_key(cfg, reader, uid_bytes, pending, state=None):
     resulting ciphertext on this device."""
     key, ok = get_or_create_tag_key(reader, uid_bytes)
     if not ok or key is None:
+        if tag_refuses_factory_key(reader, uid_bytes):
+            return {"ok": False, "event": Event.PASSWORD_ERROR, "error": REFUSES_FACTORY_KEY}
         return {"ok": False, "event": Event.PASSWORD_ERROR,
                 "error": "couldn't read this tag reliably. Hold it flat and still "
                          "on the reader, then try again"}

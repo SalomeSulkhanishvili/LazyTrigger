@@ -733,6 +733,11 @@ function handleLine(line) {
   if (msg.event === Event.PASSWORD_SET) {
     closePwGate();
     send({ cmd: Command.GET_CONFIG });
+  } else if (msg.event === Event.PASSWORD_ERROR && !$("pwGate").classList.contains("hidden")) {
+    // The password dialog is open, so the error is the password's, even if
+    // an old secret save never finished.
+    const note = $("pwGate").querySelector(".status");
+    if (note) setStatus(note, "Failed: " + msg.error, "err");
   } else if (msg.event === Event.PASSWORD_ERROR && pendingSecretStatus) {
     // The same tap-and-encrypt step saves secrets, so its errors are the
     // secret's too. Without this the row kept saying "Saving..." forever.
@@ -784,6 +789,12 @@ function handleLine(line) {
     setStatus($("blockStatus"), msg.error, "err");
   } else if (msg.event === Event.TAG_DATA_ERROR) {
     setStatus($("blockStatus"), "Error: " + msg.error, "err");
+  } else if (msg.ok === false && msg.error && !msg.event && !$("pwGate").classList.contains("hidden")
+             && ($("pwGate").querySelector(".status") || {}).className === "status busy") {
+    // set_password refused before any tap: the current password was wrong.
+    // The dialog would otherwise keep asking for a tap the device isn't
+    // waiting for.
+    setStatus($("pwGate").querySelector(".status"), "Failed: " + msg.error, "err");
   } else if (msg.ok === false && msg.error && $("blockStatus").classList.contains("busy")) {
     // A tag read/write/copy the device refused outright (an older firmware
     // without the command, or a bad request). Otherwise the status stays on
@@ -1991,6 +2002,10 @@ function openPwGate() {
       return;
     }
     setStatus(note, "Now tap the tag that should unlock this computer...", "busy");
+    // The tap-to-encrypt step is shared with secrets; forget any secret save
+    // that never finished, so its row can't claim this one's answer.
+    pendingSecretStatus = null;
+    pendingSecretAction = null;
     await send({
       cmd: Command.SET_PASSWORD,
       value: newInput.value,
