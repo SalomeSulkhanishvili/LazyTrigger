@@ -193,6 +193,11 @@ def _powershell_string(s):
     return "'" + s.replace("'", "''") + "'"
 
 
+# Windows gives a console program its own window. Started from the app,
+# which has none, every lock-state check would flash one on screen.
+NO_WINDOW = {"creationflags": 0x08000000} if platform.system() == "Windows" else {}
+
+
 def show_notification(title, body):
     system = platform.system()
     try:
@@ -206,7 +211,7 @@ def show_notification(title, body):
                 "Add-Type -AssemblyName System.Windows.Forms; "
                 "[System.Windows.Forms.MessageBox]::Show({}, {}) | Out-Null"
             ).format(_powershell_string(body), _powershell_string(title))
-            subprocess.Popen(["powershell", "-NoProfile", "-Command", ps])
+            subprocess.Popen(["powershell", "-NoProfile", "-Command", ps], **NO_WINDOW)
         elif shutil.which("notify-send"):
             subprocess.run(["notify-send", title, body], check=False)
         elif shutil.which("zenity"):
@@ -241,7 +246,7 @@ def screen_is_locked():
             # LogonUI.exe owns the screen whenever the workstation is locked.
             out = subprocess.run(
                 ["tasklist", "/FI", "IMAGENAME eq LogonUI.exe"],
-                capture_output=True, text=True, timeout=4,
+                capture_output=True, text=True, timeout=4, **NO_WINDOW,
             ).stdout
             return "LogonUI.exe" in out
 
@@ -293,7 +298,7 @@ def frontmost_app():
                  "(Add-Type -MemberDefinition '[DllImport(\"user32.dll\")]"
                  "public static extern IntPtr GetForegroundWindow();' "
                  "-Name W -PassThru)::GetForegroundWindow()}).ProcessName"],
-                capture_output=True, text=True, timeout=5).stdout.strip()
+                capture_output=True, text=True, timeout=5, **NO_WINDOW).stdout.strip()
             return out or None
 
         if shutil.which("xdotool"):
@@ -359,7 +364,7 @@ def open_url(url):
         if system == "Darwin":
             subprocess.run(["open", url], check=False)
         elif system == "Windows":
-            subprocess.run(["cmd", "/c", "start", "", url], check=False)
+            subprocess.run(["cmd", "/c", "start", "", url], check=False, **NO_WINDOW)
         elif shutil.which("xdg-open"):
             subprocess.run(["xdg-open", url], check=False)
         else:
